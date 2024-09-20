@@ -113,7 +113,7 @@ void destroy_queue(VkDevice device, struct AutomatonQueue *queue)
 
 void queue_push_cmd(struct AutomatonQueue *queue, uint32_t stack_id, struct AutomatonCmd *cmd)
 {
-    if (queue->handle == VK_NULL_HANDLE || queue->stacks.data == NULL) 
+    if (queue->handle == VK_NULL_HANDLE || queue->stacks.data == NULL)
     {
         log_warn("queue is not suitable for pushing cmd %p %p", queue->handle, queue->stacks.data);
         return;
@@ -212,6 +212,30 @@ void destroy_vkobject(VkDevice device, struct AutomatonVkObject *vkobject)
     case AUTOMATON_VK_OBJECT_TYPE_DESCRIPTOR_POOL:
     vkDestroyDescriptorPool(device, (VkDescriptorPool)vkobject->handle, NULL);
     log_debug("descriptor pool destroyed");
+    break;
+    case AUTOMATON_VK_OBJECT_TYPE_PIPELINE:
+    vkDestroyPipeline(device, (VkPipeline)vkobject->handle, NULL);
+    log_debug("pipeline destroyed");
+    break;
+    case AUTOMATON_VK_OBJECT_TYPE_PIPELINE_LAYOUT:
+    vkDestroyPipelineLayout(device, (VkPipelineLayout)vkobject->handle, NULL);
+    log_debug("pipeline layout destroyed");
+    break;
+    case AUTOMATON_VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT:
+    vkDestroyDescriptorSetLayout(device, (VkDescriptorSetLayout)vkobject->handle, NULL);
+    log_debug("descriptor set layout destroyed");
+    break;
+    case AUTOMATON_VK_OBJECT_TYPE_FRAMEBUFFER:
+    vkDestroyFramebuffer(device, (VkFramebuffer)vkobject->handle, NULL);
+    log_debug("framebuffer destroyed");
+    break;
+    case AUTOMATON_VK_OBJECT_TYPE_SAMPLER:
+    vkDestroySampler(device, (VkSampler)vkobject->handle, NULL);
+    log_debug("sampler destroyed");
+    break;
+    case AUTOMATON_VK_OBJECT_TYPE_RENDERPASS:
+    vkDestroyRenderPass(device, (VkRenderPass)vkobject->handle, NULL);
+    log_debug("render pass destroyed");
     break;
     case AUTOMATON_VK_OBJECT_TYPE_BUFFER:
     vkDestroyBuffer(device, (VkBuffer)vkobject->handle, NULL);
@@ -322,7 +346,7 @@ void automaton_collect_vkobject(struct Automaton *automaton, enum AutomatonVkObj
     list_AutomatonVkObject_append(&automaton->garbage.vkobjects, &vkobject);
 }
 
-bool automaton_check_queue_support(struct Automaton *automaton, enum AutomatonVkObjectType type)
+bool automaton_check_queue_support(struct Automaton *automaton, enum AutomatonQueueType type)
 {
     switch (type)
     {

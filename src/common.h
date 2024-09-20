@@ -20,6 +20,8 @@
 #include "log.h"
 #include "vki.h"
 
+LIST(size_t)
+
 LIST(VkImage)
 LIST(VkImageView)
 LIST(VkCommandBuffer)
@@ -186,6 +188,12 @@ enum AutomatonVkObjectType
     AUTOMATON_VK_OBJECT_TYPE_BUFFER = 2,
     AUTOMATON_VK_OBJECT_TYPE_IMAGE = 3,
     AUTOMATON_VK_OBJECT_TYPE_IMAGE_VIEW = 4,
+    AUTOMATON_VK_OBJECT_TYPE_PIPELINE = 5,
+    AUTOMATON_VK_OBJECT_TYPE_PIPELINE_LAYOUT = 6,
+    AUTOMATON_VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT = 7,
+    AUTOMATON_VK_OBJECT_TYPE_FRAMEBUFFER = 8,
+    AUTOMATON_VK_OBJECT_TYPE_SAMPLER = 9,
+    AUTOMATON_VK_OBJECT_TYPE_RENDERPASS = 10,
 };
 
 struct AutomatonVkObject
@@ -236,55 +244,7 @@ void automaton_collect_image(struct Automaton *automaton, struct Image *image);
 
 void automaton_collect_vkobject(struct Automaton *automaton, enum AutomatonVkObjectType type, void *handle);
 
-bool automaton_check_queue_support(struct Automaton *automaton, enum AutomatonVkObjectType type);
-
-/*
-*   BUFFER SECTION
-*/
-
-/*struct BufferRange
-{
-    size_t offset; // offset from the beginning of the section
-    size_t segment_id; // basically the index inside buffer_segments of a BufferSection, shouldn't be modified manually
-    bool moved; // if the range has moved or not (in term of offset)
-};
-
-typedef struct BufferRange *BufferRange_ptr;
-LIST(BufferRange_ptr);
-
-struct BufferSegment
-{
-    struct List_BufferRange_ptr range_ptrs;
-    size_t max_range_count; // maximum number of BufferRange allocated inside this segment
-    size_t base_offset; // offset of the segment
-    size_t range_size; // size of each BufferRange allocated inside this segment
-};
-
-typedef struct BufferSegment BufferSegment;
-LIST(BufferSegment);
-
-struct BufferSection
-{
-    struct List_BufferSegment segments;
-};
-
-struct BufferSection create_buffer_section(size_t segment_count, const size_t *max_range_per_segment, const size_t *range_size_per_segment, size_t *buffer_section_size);
-
-void destroy_buffer_section(struct BufferSection *buffer_section);
-
-struct BufferRange *allocate_buffer_range(struct BufferSection *buffer_section, size_t segment_id);
-
-void free_buffer_range(struct BufferSection *buffer_section, struct BufferRange *buffer_range);
-
-size_t get_buffer_range_size(struct BufferSection *buffer_section, struct BufferRange *buffer_range);
-
-size_t get_buffer_segment_offset(struct BufferSection *buffer_section, size_t segment_id);
-
-size_t get_buffer_segment_max_size(struct BufferSection *buffer_section, size_t segment_id);
-
-size_t get_buffer_segment_actual_size(struct BufferSection *buffer_section, size_t segment_id);
-
-size_t get_buffer_segment_range_size(struct BufferSection *buffer_section, size_t segment_id);*/
+bool automaton_check_queue_support(struct Automaton *automaton, enum AutomatonQueueType type);
 
 /*
 *   SUB BUFFER
@@ -294,7 +254,8 @@ struct SubBufferAllocator;
 
 struct SubBuffer
 {
-    bool updated; // if the range has been updated or not (in term of offset). Set it to true in order to force updating the data;
+    bool updated; // if the range has been updated or not (in term of offset). Set it to true in order to force updating the data
+    bool free_on_copy; // release data after update
     const void *data; // a pointer to some data on the user side. Must have the size of "subbuffer_size"
     size_t _offset; // offset from the beginning of the section, shouldn't be modified manually
     size_t _segment_id; // basically the index inside subbuffer_segments of a SubBufferAllocator, shouldn't be modified manually
@@ -353,11 +314,7 @@ size_t get_subbuffer_segment_subsize(struct SubBufferAllocator *allocator, size_
 
 struct ScObject
 {
-    //const struct ScObjectData *object_data;
-    //struct BufferRange *buffer_range;
     struct SubBuffer *subbuffer;
-    struct ScResourcePack *resource_pack;
-    //bool updated;
 };
 
 /*
@@ -366,25 +323,52 @@ struct ScObject
 
 typedef struct ScObject *ScObject_ptr;
 LIST(ScObject_ptr);
+typedef struct List_ScObject_ptr List_ScObject_ptr;
+LIST(List_ScObject_ptr);
 
 struct ScResourcePack
 {
-    struct ScCore *core;
-    /*struct Buffer gpu_buffer, transfer_buffer;
-    struct BufferSection buffer_section;
-    struct BufferRange *camera_range, *light_global_range, *mesh_range;*/
+    struct List_size_t vertex_byte_offsets;
+    struct List_size_t index_byte_offsets;
+    struct List_size_t index_counts;
+    struct List_size_t instance_offsets;
+    struct List_size_t max_instances;
+    size_t total_mesh_byte_size;
+    struct ScPipeline *pipeline;
     struct SubBufferAllocator sb_allocator;
     struct SubBuffer *sb_mesh;
-    struct List_ScObject_ptr object_ptrs;
+    struct List_List_ScObject_ptr list_object_ptrs;
 };
 
 void update_resource_pack(struct ScResourcePack *resource_pack);
+
+bool is_resource_pack_empty(struct ScResourcePack *resource_pack);
+
+size_t resource_pack_get_mesh_count(struct ScResourcePack *resource_pack);
+
+size_t resource_pack_get_instance_count(struct ScResourcePack *resource_pack, size_t mesh_id);
+
+VkDeviceSize resource_pack_get_mesh_vertex_offset(struct ScResourcePack *resource_pack, size_t mesh_id);
+
+VkDeviceSize resource_pack_get_mesh_index_offset(struct ScResourcePack *resource_pack, size_t mesh_id);
+
+VkDeviceSize resource_pack_get_mesh_instance_offset(struct ScResourcePack *resource_pack, size_t mesh_id);
+
+uint32_t resource_pack_get_mesh_index_count(struct ScResourcePack *resource_pack, size_t mesh_id);
+
+bool resource_pack_is_mesh_empty(struct ScResourcePack *resource_pack, size_t mesh_id);
+
+VkBuffer resource_pack_get_vkbuffer(struct ScResourcePack *resource_pack);
 
 /*
 *   SC PIPELINE
 */
 
+typedef struct ScResourcePack *ScResourcePack_ptr;
+LIST(ScResourcePack_ptr);
+
 typedef void (*pipeline_record_command_buffer_fn)(struct ScPipeline *pipeline, VkCommandBuffer cmd, uint32_t image_index);
+typedef void (*pipeline_update_fn)(struct ScPipeline *pipeline);
 
 struct ScPipeline
 {
@@ -394,7 +378,8 @@ struct ScPipeline
     VkFormat present_format, depth_format;
     const struct List_VkImageView *present_views;
     pipeline_record_command_buffer_fn record_cmd_fn;
-    union 
+    pipeline_update_fn update_fn;
+    union
     {
         struct
         {
@@ -421,17 +406,14 @@ struct ScPipeline
                 VkDescriptorPool descpool;
                 VkDescriptorSet composition_desc_set;
             } forward;
-            /*struct Buffer gpu_buffer, transfer_buffer;
-            struct BufferSection buffer_section;
-            struct BufferRange *camera_range, *light_global_range;*/
             struct SubBufferAllocator sb_allocator;
             struct SubBuffer *sb_camera, *sb_light_global;
-            struct ScResourcePack *test_pack;
+            struct List_ScResourcePack_ptr packs_ptrs;
         } d3_deferred;
     };
 };
 
-struct ScPipeline create_pipeline_d3_deferred(struct Automaton *automaton, VkExtent2D extent, VkFormat present_format, VkFormat depth_format, VkQueue queue, uint32_t queue_index, const struct List_VkImageView *present_views);
+struct ScPipeline create_pipeline_d3_deferred(struct Automaton *automaton, VkExtent2D extent, VkFormat present_format, VkFormat depth_format, const struct List_VkImageView *present_views);
 
 void destroy_pipeline_d3_deferred(struct ScPipeline *pipeline);
 
@@ -443,8 +425,8 @@ void pipeline_d3_deferred_update(struct ScPipeline *pipeline);
 *   SC CORE
 */
 
-typedef struct ScResourcePack ScResourcePack;
-LIST(ScResourcePack);
+typedef struct ScPipeline *ScPipeline_ptr;
+LIST(ScPipeline_ptr);
 
 struct ScCore
 {
@@ -484,11 +466,9 @@ struct ScCore
     struct List_VkSemaphore sem_ren;
     struct List_VkFence fences;
     uint32_t current_frame_index;
-    struct ScPipeline pipeline;
+    struct List_ScPipeline_ptr pipeline_ptrs;
+    //struct ScPipeline pipeline;
 };
 
 #define vkcheck(vk_fn) {VkResult result = vk_fn; if (result != VK_SUCCESS) log_error("vulkan function error");}
 #define assert_ndbg(expression) if ((expression) != true) log_error("non-debug assert failed");
-#define min(X, Y) (((X) < (Y)) ? (X) : (Y))
-#define max(X, Y) (((X) > (Y)) ? (X) : (Y))
-#define clamp(X, LOW, UP) min((UP), max((X), (LOW)))

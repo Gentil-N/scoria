@@ -5,6 +5,7 @@ struct SubBuffer *create_subbuffer(size_t offset, size_t segment_id)
     ram_alloc_init(struct SubBuffer, subbuffer);
     subbuffer->data = NULL;
     subbuffer->updated = false;
+    subbuffer->free_on_copy = false;
     subbuffer->_offset = offset;
     subbuffer->_segment_id = segment_id;
     return subbuffer;
@@ -22,7 +23,7 @@ void subbuffer_update(struct SubBuffer *subbuffer, struct Buffer *transfer_buffe
         subbuffer->updated = false;
         return;
     }
-    struct AutomatonCmdCopyBufferCpuGpuInfo cpu_gpu_info = init_automaton_cmd_copy_buffer_cpu_gpu_info(0, subbuffer->_offset, size, subbuffer->data, transfer_buffer->map, transfer_buffer->vma, false);
+    struct AutomatonCmdCopyBufferCpuGpuInfo cpu_gpu_info = init_automaton_cmd_copy_buffer_cpu_gpu_info(0, subbuffer->_offset, size, subbuffer->data, transfer_buffer->map, transfer_buffer->vma, subbuffer->free_on_copy);
     struct AutomatonCmd cmd = init_automaton_cmd(AUTOMATON_CMD_TYPE_COPY_BUFFER_CPU_GPU);
     cmd.copy_buffer_cpu_to_gpu_info = cpu_gpu_info;
     automaton_push_cmds(automaton, transfer_queue_type, 0, &cmd);
@@ -81,7 +82,7 @@ void segment_update(struct SubBufferSegment *segment, struct Buffer *transfer_bu
 {
     for_list(i, segment->subbuffer_ptrs)
     {
-        if (segment->subbuffer_ptrs.data[i]->updated) 
+        if (segment->subbuffer_ptrs.data[i]->updated)
         {
             subbuffer_update(segment->subbuffer_ptrs.data[i], transfer_buffer, gpu_buffer, segment->info.subbuffer_size, automaton, transfer_queue_type);
         }

@@ -1,4 +1,5 @@
 #include "common.h"
+#include "ctools.h"
 
 #include <X11/X.h>
 #include <X11/Xlib.h>
@@ -408,7 +409,7 @@ struct ScCore *sc_init_core(const struct ScCoreInfo *core_info)
     create_image_views(core);
     core->automaton = create_automaton(core->device, core->allocator, core->queue, VK_NULL_HANDLE, VK_NULL_HANDLE, core->queue_index,  0, 0, 1, 0, 0);
     create_presentation_resources(core);
-    core->pipeline = create_pipeline_d3_deferred(&core->automaton, core->sf_extent, core->sf_format.format, core->depth_format, core->queue, core->queue_index, &core->sviews);
+    core->pipeline_ptrs = list_create(ScPipeline_ptr, 0);
     return core;
 }
 
@@ -419,7 +420,7 @@ void sc_end_core(struct ScCore *core)
     automaton_flush_cmds(&core->automaton, AUTOMATON_QUEUE_TYPE_GRAPHICS, 0);
     automaton_flush_garbage(&core->automaton);
 
-    destroy_pipeline_d3_deferred(&core->pipeline);
+    list_ScPipeline_ptr_destroy(&core->pipeline_ptrs);
 
     /// MAIN
     vkDestroyCommandPool(core->device, core->cmd_pool, NULL);
@@ -456,8 +457,10 @@ void sc_end_core(struct ScCore *core)
 
 void sc_update_core(struct ScCore *core)
 {
-    pipeline_d3_deferred_update(&core->pipeline);
-    update_resource_pack(core->pipeline.d3_deferred.test_pack);
+    for_list(i, core->pipeline_ptrs)
+    {
+        core->pipeline_ptrs.data[i]->update_fn(core->pipeline_ptrs.data[i]);
+    }
 
     automaton_flush_cmds(&core->automaton, AUTOMATON_QUEUE_TYPE_GRAPHICS, 0);
     automaton_flush_garbage(&core->automaton);
@@ -470,7 +473,10 @@ void sc_update_core(struct ScCore *core)
     vkResetCommandBuffer(core->cmds.data[core->current_frame_index], /*VkCommandBufferResetFlagBits*/ 0);
     VkCommandBufferBeginInfo begin_info = vkiCommandBufferBeginInfo_null();
     vkcheck(vkBeginCommandBuffer(core->cmds.data[core->current_frame_index], &begin_info));
-    core->pipeline.record_cmd_fn(&core->pipeline, core->cmds.data[core->current_frame_index], image_index);
+    for_list(i, core->pipeline_ptrs)
+    {
+        core->pipeline_ptrs.data[i]->record_cmd_fn(core->pipeline_ptrs.data[i], core->cmds.data[core->current_frame_index], image_index);
+    }
     vkcheck(vkEndCommandBuffer(core->cmds.data[core->current_frame_index]));
 
     VkSemaphore wait_sems[] = {core->sem_ima.data[core->current_frame_index]};
@@ -486,4 +492,28 @@ void sc_update_core(struct ScCore *core)
     vkcheck(vkQueuePresentKHR(core->queue, &present_info));
 
     core->current_frame_index = (core->current_frame_index + 1) % core->image_count;
+}
+
+void sc_attach_pipeline(struct ScCore *core, struct ScPipeline *pipeline)
+{
+    for_list(i, core->pipeline_ptrs)
+    {
+        if (core->pipeline_ptrs.data[i] == pipeline)
+        {
+            log_warn("pipeline %p already attached", pipeline);
+            return;
+        }
+    }
+    list_ScPipeline_ptr_append(&core->pipeline_ptrs, &pipeline);
+}
+
+void sc_detach_pipeline(struct ScCore *core, struct ScPipeline *pipeline)
+{
+    size_t i = list_ScPipeline_ptr_find(&core->pipeline_ptrs, &pipeline);
+    if (i == SIZE_MAX)
+    {
+        log_warn("unable to detach pipeline %p", pipeline);
+        return;
+    }
+    list_ScPipeline_ptr_remove(&core->pipeline_ptrs, i);
 }

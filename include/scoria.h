@@ -34,8 +34,12 @@ struct ScCoreInfo
 
 struct ScResourcePackInfo
 {
-    size_t max_point_light;
-    size_t max_instances;
+    size_t mesh_count;
+    const void *vertex_data;
+    const uint32_t *index_data;
+    size_t *vertex_byte_size_per_mesh;
+    size_t *index_count_per_mesh;
+    size_t *max_instance_per_mesh;
 };
 
 struct ScCameraData
@@ -87,15 +91,23 @@ void sc_end_core(struct ScCore *core);
 
 void sc_update_core(struct ScCore *core);
 
-struct ScResourcePack *sc_create_resource_pack(struct ScCore *core, const struct ScResourcePackInfo *resource_pack_info, size_t filename_count, const char **filenames);
+struct ScPipeline *sc_create_pipeline(struct ScCore *core, enum ScPipelineType type);
+
+void sc_destroy_pipeline(struct ScPipeline *pipeline);
+
+void sc_attach_pipeline(struct ScCore *core, struct ScPipeline *pipeline);
+
+void sc_detach_pipeline(struct ScCore *core, struct ScPipeline *pipeline);
+
+struct ScResourcePack *sc_create_resource_pack(struct ScCore *core, struct ScPipeline *pipeline, const struct ScResourcePackInfo *resource_pack_info, size_t filename_count, const char **filenames);
 
 void sc_destroy_resource_pack(struct ScResourcePack *resource_pack);
 
-void sc_pipeline_update_camera(struct ScCore *core, struct ScCameraData *camera_data);
+void sc_pipeline_update_camera(struct ScPipeline *pipeline, struct ScCameraData *camera_data);
 
-struct ScObject *sc_create_object(struct ScResourcePack *resource_pack, size_t resource_id, const struct ScObjectData *object_data);
+struct ScObject *sc_create_object(struct ScResourcePack *resource_pack, size_t mesh_id, const struct ScObjectData *object_data);
 
-void sc_destroy_object(struct ScObject *object);
+void sc_destroy_object(struct ScResourcePack *resource_pack, struct ScObject *object);
 
 #ifdef __cplusplus
 }

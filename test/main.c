@@ -76,17 +76,30 @@ int main()
     core_info.os_specific.visual_id = XVisualIDFromVisual(DefaultVisual(core_info.os_specific.dpy, DefaultScreen(core_info.os_specific.dpy)));
 #endif // __linux__
     struct ScCore *core = sc_init_core(&core_info);
+    struct ScPipeline *pipeline = sc_create_pipeline(core, SC_PIPELINE_TYPE_3D_DEFERRED);
+    sc_attach_pipeline(core, pipeline);
+
+    float vertices[] = {-0.25f, -0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.25f, -0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.25f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, -0.25f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f};
+    uint32_t indices[] = {0, 1, 2, 2, 3, 0};
+    size_t vertex_byte_size_per_mesh[] = {sizeof(float) * 9 * 4};
+    size_t index_count_per_mesh[] = {6};
+    size_t max_instance_per_mesh[] = {10};
+
     struct ScResourcePackInfo pack_info = {0};
-    pack_info.max_instances = 10;
-    pack_info.max_point_light = 10;
+    pack_info.mesh_count = 1;
+    pack_info.vertex_data = vertices;
+    pack_info.index_data = indices;
+    pack_info.vertex_byte_size_per_mesh = vertex_byte_size_per_mesh;
+    pack_info.index_count_per_mesh = index_count_per_mesh;
+    pack_info.max_instance_per_mesh = max_instance_per_mesh;
     const char *file[] = {"./res/anim-test.glb"};
-    struct ScResourcePack *pack = sc_create_resource_pack(core, &pack_info, 1, file);
+    struct ScResourcePack *pack = sc_create_resource_pack(core,pipeline, &pack_info, 1, file);
     struct ScCameraData camera_data =
         {{1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 1.0f, 0.0f, 0.0f,
         0.0f, 0.0f, 1.0f, 0.0f,
         0.0f, 0.0f, 0.0f, 1.0f}};
-    sc_pipeline_update_camera(core, &camera_data);
+    sc_pipeline_update_camera(pipeline, &camera_data);
     struct ScObjectData object_data =
         {{1.0f, 0.0f, 0.0f, 0.0f,
         0.0f, 1.0f, 0.0f, 0.0f,
@@ -101,8 +114,10 @@ int main()
         glfwPollEvents();
     }
 
-    sc_destroy_object(object);
+    sc_destroy_object(pack, object);
     sc_destroy_resource_pack(pack);
+    sc_detach_pipeline(core, pipeline);
+    sc_destroy_pipeline(pipeline);
     sc_end_core(core);
     glfwDestroyWindow(window);
     glfwTerminate();

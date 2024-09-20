@@ -1,5 +1,7 @@
 #include "common.h"
 
+#include "ctools.h"
+#include "log.h"
 #include "shaders/forward.frag.c"
 #include "shaders/forward.vert.c"
 #include "shaders/offscreen.frag.c"
@@ -335,7 +337,7 @@ void create_forward_resources(struct ScPipeline *pipeline)
     for_create_descriptors(pipeline);
 }
 
-struct ScPipeline create_pipeline_d3_deferred(struct Automaton *automaton, VkExtent2D extent, VkFormat present_format, VkFormat depth_format, VkQueue queue, uint32_t queue_index, const struct List_VkImageView *present_views)
+struct ScPipeline create_pipeline_d3_deferred(struct Automaton *automaton, VkExtent2D extent, VkFormat present_format, VkFormat depth_format, const struct List_VkImageView *present_views)
 {
     struct ScPipeline pipeline = {0};
     pipeline.type = SC_PIPELINE_TYPE_3D_DEFERRED;
@@ -345,51 +347,63 @@ struct ScPipeline create_pipeline_d3_deferred(struct Automaton *automaton, VkExt
     pipeline.depth_format = depth_format;
     pipeline.present_views = present_views;
     pipeline.record_cmd_fn = pipeline_d3_deferred_record_cmd;
+    pipeline.update_fn = pipeline_d3_deferred_update;
     pipeline_create_buffer_resources(&pipeline);
     create_offscreen_resources(&pipeline);
     create_forward_resources(&pipeline);
+    pipeline.d3_deferred.packs_ptrs = list_create(ScResourcePack_ptr, 0);
     return pipeline;
 }
 
 void destroy_pipeline_d3_deferred(struct ScPipeline *pipeline)
 {
+    list_ScResourcePack_ptr_destroy(&pipeline->d3_deferred.packs_ptrs);
     /// FORWARD
-    vkDestroyDescriptorPool(pipeline->automaton->device, pipeline->d3_deferred.forward.descpool, NULL);
-    vkDestroyPipeline(pipeline->automaton->device, pipeline->d3_deferred.forward.pip, NULL);
-    vkDestroyPipelineLayout(pipeline->automaton->device, pipeline->d3_deferred.forward.pipl, NULL);
-    vkDestroyDescriptorSetLayout(pipeline->automaton->device, pipeline->d3_deferred.forward.lights_setlay, NULL);
-    vkDestroyDescriptorSetLayout(pipeline->automaton->device, pipeline->d3_deferred.forward.composition_setlay, NULL);
+    automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_DESCRIPTOR_POOL, pipeline->d3_deferred.forward.descpool);
+    automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_PIPELINE, pipeline->d3_deferred.forward.pip);
+    automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_PIPELINE_LAYOUT, pipeline->d3_deferred.forward.pipl);
+    automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, pipeline->d3_deferred.forward.lights_setlay);
+    automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, pipeline->d3_deferred.forward.composition_setlay);
     for_list(i, pipeline->d3_deferred.forward.fbufs)
     {
-        vkDestroyFramebuffer(pipeline->automaton->device, pipeline->d3_deferred.forward.fbufs.data[i], NULL);
+        automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_FRAMEBUFFER, pipeline->d3_deferred.forward.fbufs.data[i]);
     }
     list_VkFramebuffer_destroy(&pipeline->d3_deferred.forward.fbufs);
-    vkDestroyRenderPass(pipeline->automaton->device, pipeline->d3_deferred.forward.rpass, NULL);
+    automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_RENDERPASS, pipeline->d3_deferred.forward.rpass);
     automaton_collect_image(pipeline->automaton, &pipeline->d3_deferred.forward.depth_res);
-
     /// OFFSCREEN
-    vkDestroyDescriptorPool(pipeline->automaton->device, pipeline->d3_deferred.offscreen.descpool, NULL);
-    vkDestroyPipeline(pipeline->automaton->device, pipeline->d3_deferred.offscreen.pip, NULL);
-    vkDestroyPipelineLayout(pipeline->automaton->device, pipeline->d3_deferred.offscreen.pipl, NULL);
-    vkDestroyDescriptorSetLayout(pipeline->automaton->device, pipeline->d3_deferred.offscreen.setlay, NULL);
-    vkDestroySampler(pipeline->automaton->device, pipeline->d3_deferred.offscreen.sampler, NULL);
+    automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_DESCRIPTOR_POOL, pipeline->d3_deferred.offscreen.descpool);
+    automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_PIPELINE, pipeline->d3_deferred.offscreen.pip);
+    automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_PIPELINE_LAYOUT, pipeline->d3_deferred.offscreen.pipl);
+    automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, pipeline->d3_deferred.offscreen.setlay);
+    automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_SAMPLER, pipeline->d3_deferred.offscreen.sampler);
     for_list(i, pipeline->d3_deferred.offscreen.fbufs)
     {
-        vkDestroyFramebuffer(pipeline->automaton->device, pipeline->d3_deferred.offscreen.fbufs.data[i], NULL);
+        automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_FRAMEBUFFER, pipeline->d3_deferred.offscreen.fbufs.data[i]);
     }
     list_VkFramebuffer_destroy(&pipeline->d3_deferred.offscreen.fbufs);
-    vkDestroyRenderPass(pipeline->automaton->device, pipeline->d3_deferred.offscreen.rpass, NULL);
+    automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_RENDERPASS, pipeline->d3_deferred.offscreen.rpass);
     automaton_collect_image(pipeline->automaton, &pipeline->d3_deferred.offscreen.depth_res);
     automaton_collect_image(pipeline->automaton, &pipeline->d3_deferred.offscreen.albedo_res);
     automaton_collect_image(pipeline->automaton, &pipeline->d3_deferred.offscreen.normal_res);
     automaton_collect_image(pipeline->automaton, &pipeline->d3_deferred.offscreen.position_res);
-
     /// BUFFER RESOURCES
     destroy_subbuffer_allocator(&pipeline->d3_deferred.sb_allocator);
 }
 
 void pipeline_d3_deferred_record_cmd(struct ScPipeline *pipeline, VkCommandBuffer cmd, uint32_t image_index)
 {
+    bool empty_flag = true;
+    for_list(i, pipeline->d3_deferred.packs_ptrs)
+    {
+        if (is_resource_pack_empty(pipeline->d3_deferred.packs_ptrs.data[i]) != true)
+        {
+            empty_flag = false;
+            break;
+        }
+    }
+    if (empty_flag == true) return;
+
     /// OFFSCREEN
 
     VkRenderPassBeginInfo off_rpass_info = {0};
@@ -414,16 +428,22 @@ void pipeline_d3_deferred_record_cmd(struct ScPipeline *pipeline, VkCommandBuffe
     VkRect2D scissor = {{0, 0}, pipeline->extent};
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    VkBuffer bigbuf[] = {pipeline->d3_deferred.test_pack->sb_allocator.gpu_buffer.handle};
-    if (pipeline->d3_deferred.test_pack->object_ptrs.size != 0)
+    for_list(i, pipeline->d3_deferred.packs_ptrs)
     {
-        VkDeviceSize vertex_offset[] = {pipeline->d3_deferred.test_pack->sb_mesh->_offset};
-        VkDeviceSize index_offset = {pipeline->d3_deferred.test_pack->sb_mesh->_offset + sizeof(float) * 9 * 4};
-        VkDeviceSize instance_offset[] = {get_subbuffer_segment_offset(&pipeline->d3_deferred.test_pack->sb_allocator, 0)};
-        vkCmdBindVertexBuffers(cmd, 0, 1, bigbuf, vertex_offset);
-        vkCmdBindVertexBuffers(cmd, 1, 1, bigbuf, instance_offset);
-        vkCmdBindIndexBuffer(cmd, bigbuf[0], index_offset, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(cmd, 6, pipeline->d3_deferred.test_pack->object_ptrs.size, 0, 0, 0);
+        struct ScResourcePack *pack = pipeline->d3_deferred.packs_ptrs.data[i];
+        VkBuffer bigbuf[] = {resource_pack_get_vkbuffer(pack)};
+        for_loop(j, resource_pack_get_mesh_count(pack))
+        {
+            size_t instance_count = resource_pack_get_instance_count(pack, j);
+            if (instance_count == 0) continue;
+            VkDeviceSize vertex_offset[] = {resource_pack_get_mesh_vertex_offset(pack, j)};
+            VkDeviceSize index_offset = {resource_pack_get_mesh_index_offset(pack, j)};
+            VkDeviceSize instance_offset[] = {resource_pack_get_mesh_instance_offset(pack, j)};
+            vkCmdBindVertexBuffers(cmd, 0, 1, bigbuf, vertex_offset);
+            vkCmdBindVertexBuffers(cmd, 1, 1, bigbuf, instance_offset);
+            vkCmdBindIndexBuffer(cmd, bigbuf[0], index_offset, VK_INDEX_TYPE_UINT32);
+            vkCmdDrawIndexed(cmd, resource_pack_get_mesh_index_count(pack, j), instance_count, 0, 0, 0);
+        }
     }
     //vkCmdDraw(core->cmds.data[core->current_frame_index], 3, 1, 0, 0);
     vkCmdEndRenderPass(cmd);
@@ -431,7 +451,7 @@ void pipeline_d3_deferred_record_cmd(struct ScPipeline *pipeline, VkCommandBuffe
     /// FORWARD
 
     VkClearValue clearValues[2];
-	clearValues[0].color = (VkClearColorValue){ { 0.5f, 0.0f, 0.0f, 1.0f } };
+	clearValues[0].color = (VkClearColorValue){ { 0.0f, 0.0f, 0.0f, 1.0f } };
 	clearValues[1].depthStencil = vkiClearDepthStencilValue(1.0f, 0);
 	VkRenderPassBeginInfo for_rpass_info = vkiRenderPassBeginInfo(pipeline->d3_deferred.forward.rpass, pipeline->d3_deferred.forward.fbufs.data[image_index], (VkRect2D){(VkOffset2D){}, (VkExtent2D)pipeline->extent}, 2, clearValues);
 	vkCmdBeginRenderPass(cmd, &for_rpass_info, VK_SUBPASS_CONTENTS_INLINE);
@@ -445,13 +465,46 @@ void pipeline_d3_deferred_record_cmd(struct ScPipeline *pipeline, VkCommandBuffe
 	vkCmdEndRenderPass(cmd);
 }
 
-void sc_pipeline_update_camera(struct ScCore *core, struct ScCameraData *camera_data)
+void sc_pipeline_update_camera(struct ScPipeline *pipeline, struct ScCameraData *camera_data)
 {
-    core->pipeline.d3_deferred.sb_camera->data = &camera_data->view_proj[0];
-    core->pipeline.d3_deferred.sb_camera->updated = true;
+    pipeline->d3_deferred.sb_camera->data = &camera_data->view_proj[0];
+    pipeline->d3_deferred.sb_camera->updated = true;
 }
 
 void pipeline_d3_deferred_update(struct ScPipeline *pipeline)
 {
     subbuffer_allocator_update(&pipeline->d3_deferred.sb_allocator);
+    for_list(i, pipeline->d3_deferred.packs_ptrs)
+    {
+        update_resource_pack(pipeline->d3_deferred.packs_ptrs.data[i]);
+    }
+}
+
+struct ScPipeline *sc_create_pipeline(struct ScCore *core, enum ScPipelineType type)
+{
+    ram_alloc_init(struct ScPipeline, pipeline);
+    switch (type)
+    {
+    case SC_PIPELINE_TYPE_3D_DEFERRED:
+    *pipeline = create_pipeline_d3_deferred(&core->automaton, core->sf_extent, core->sf_format.format, core->depth_format, &core->sviews);
+    break;
+    default:
+    log_error("pipeline not supported yet");
+    break;
+    }
+    return pipeline;
+}
+
+void sc_destroy_pipeline(struct ScPipeline *pipeline)
+{
+    switch (pipeline->type)
+    {
+    case SC_PIPELINE_TYPE_3D_DEFERRED:
+    destroy_pipeline_d3_deferred(pipeline);
+    break;
+    default:
+    log_error("pipeline not supported yet");
+    break;
+    }
+    ram_free(pipeline);
 }
