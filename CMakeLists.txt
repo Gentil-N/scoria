@@ -14,9 +14,10 @@ set(SRC_FILES   ${SRC_DIR}/test/main.c
                 ${SRC_DIR}/src/core.c
                 ${SRC_DIR}/src/common.c
                 ${SRC_DIR}/src/automaton.c
-                ${SRC_DIR}/src/resource_pack.c
+                ${SRC_DIR}/src/mesh_pack.c
                 ${SRC_DIR}/src/subbuffer.c
-                ${SRC_DIR}/src/pipeline.c)
+                ${SRC_DIR}/src/d3_deferred_pipeline.c
+                ${SRC_DIR}/src/asset.c)
 
 find_package(glfw3 REQUIRED)
 include_directories(${GLFW_INCLUDE_DIRS})

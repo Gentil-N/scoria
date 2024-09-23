@@ -351,13 +351,13 @@ struct ScPipeline create_pipeline_d3_deferred(struct Automaton *automaton, VkExt
     pipeline_create_buffer_resources(&pipeline);
     create_offscreen_resources(&pipeline);
     create_forward_resources(&pipeline);
-    pipeline.d3_deferred.packs_ptrs = list_create(ScResourcePack_ptr, 0);
+    pipeline.packs_ptrs = list_create(ScMeshPack_ptr, 0);
     return pipeline;
 }
 
 void destroy_pipeline_d3_deferred(struct ScPipeline *pipeline)
 {
-    list_ScResourcePack_ptr_destroy(&pipeline->d3_deferred.packs_ptrs);
+    list_ScMeshPack_ptr_destroy(&pipeline->packs_ptrs);
     /// FORWARD
     automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_DESCRIPTOR_POOL, pipeline->d3_deferred.forward.descpool);
     automaton_collect_vkobject(pipeline->automaton, AUTOMATON_VK_OBJECT_TYPE_PIPELINE, pipeline->d3_deferred.forward.pip);
@@ -394,9 +394,9 @@ void destroy_pipeline_d3_deferred(struct ScPipeline *pipeline)
 void pipeline_d3_deferred_record_cmd(struct ScPipeline *pipeline, VkCommandBuffer cmd, uint32_t image_index)
 {
     bool empty_flag = true;
-    for_list(i, pipeline->d3_deferred.packs_ptrs)
+    for_list(i, pipeline->packs_ptrs)
     {
-        if (is_resource_pack_empty(pipeline->d3_deferred.packs_ptrs.data[i]) != true)
+        if (is_mesh_pack_empty(pipeline->packs_ptrs.data[i]) != true)
         {
             empty_flag = false;
             break;
@@ -428,21 +428,21 @@ void pipeline_d3_deferred_record_cmd(struct ScPipeline *pipeline, VkCommandBuffe
     VkRect2D scissor = {{0, 0}, pipeline->extent};
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    for_list(i, pipeline->d3_deferred.packs_ptrs)
+    for_list(i, pipeline->packs_ptrs)
     {
-        struct ScResourcePack *pack = pipeline->d3_deferred.packs_ptrs.data[i];
-        VkBuffer bigbuf[] = {resource_pack_get_vkbuffer(pack)};
-        for_loop(j, resource_pack_get_mesh_count(pack))
+        struct ScMeshPack *pack = pipeline->packs_ptrs.data[i];
+        VkBuffer bigbuf[] = {mesh_pack_get_vkbuffer(pack)};
+        for_loop(j, mesh_pack_get_mesh_count(pack))
         {
-            size_t instance_count = resource_pack_get_instance_count(pack, j);
+            size_t instance_count = mesh_pack_get_instance_count(pack, j);
             if (instance_count == 0) continue;
-            VkDeviceSize vertex_offset[] = {resource_pack_get_mesh_vertex_offset(pack, j)};
-            VkDeviceSize index_offset = {resource_pack_get_mesh_index_offset(pack, j)};
-            VkDeviceSize instance_offset[] = {resource_pack_get_mesh_instance_offset(pack, j)};
+            VkDeviceSize vertex_offset[] = {mesh_pack_get_mesh_vertex_offset(pack, j)};
+            VkDeviceSize index_offset = {mesh_pack_get_mesh_index_offset(pack, j)};
+            VkDeviceSize instance_offset[] = {mesh_pack_get_mesh_instance_offset(pack, j)};
             vkCmdBindVertexBuffers(cmd, 0, 1, bigbuf, vertex_offset);
             vkCmdBindVertexBuffers(cmd, 1, 1, bigbuf, instance_offset);
             vkCmdBindIndexBuffer(cmd, bigbuf[0], index_offset, VK_INDEX_TYPE_UINT32);
-            vkCmdDrawIndexed(cmd, resource_pack_get_mesh_index_count(pack, j), instance_count, 0, 0, 0);
+            vkCmdDrawIndexed(cmd, mesh_pack_get_mesh_index_count(pack, j), instance_count, 0, 0, 0);
         }
     }
     //vkCmdDraw(core->cmds.data[core->current_frame_index], 3, 1, 0, 0);
@@ -474,9 +474,9 @@ void sc_pipeline_update_camera(struct ScPipeline *pipeline, struct ScCameraData 
 void pipeline_d3_deferred_update(struct ScPipeline *pipeline)
 {
     subbuffer_allocator_update(&pipeline->d3_deferred.sb_allocator);
-    for_list(i, pipeline->d3_deferred.packs_ptrs)
+    for_list(i, pipeline->packs_ptrs)
     {
-        update_resource_pack(pipeline->d3_deferred.packs_ptrs.data[i]);
+        update_mesh_pack(pipeline->packs_ptrs.data[i]);
     }
 }
 

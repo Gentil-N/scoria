@@ -20,7 +20,12 @@
 #include "log.h"
 #include "vki.h"
 
-LIST(size_t)
+typedef char *char_ptr;
+
+LIST(size_t);
+LIST(char_ptr);
+LIST(float);
+LIST(uint32_t);
 
 LIST(VkImage)
 LIST(VkImageView)
@@ -309,10 +314,23 @@ size_t get_subbuffer_segment_actual_size(struct SubBufferAllocator *allocator, s
 size_t get_subbuffer_segment_subsize(struct SubBufferAllocator *allocator, size_t segment_id);
 
 /*
+*   SC ASSET
+*/
+
+struct ScAsset
+{
+    struct List_char_ptr mesh_names;
+    struct List_float vertices;
+    struct List_uint32_t indices;
+    struct List_size_t vertex_byte_size_per_mesh;
+    struct List_size_t index_count_per_mesh;
+};
+
+/*
 *   SC OBJECT
 */
 
-struct ScObject
+struct ScItem
 {
     struct SubBuffer *subbuffer;
 };
@@ -321,12 +339,12 @@ struct ScObject
 *   SC RESOURCE PACK
 */
 
-typedef struct ScObject *ScObject_ptr;
-LIST(ScObject_ptr);
-typedef struct List_ScObject_ptr List_ScObject_ptr;
-LIST(List_ScObject_ptr);
+typedef struct ScItem *ScItem_ptr;
+LIST(ScItem_ptr);
+typedef struct List_ScItem_ptr List_ScItem_ptr;
+LIST(List_ScItem_ptr);
 
-struct ScResourcePack
+struct ScMeshPack
 {
     struct List_size_t vertex_byte_offsets;
     struct List_size_t index_byte_offsets;
@@ -337,35 +355,35 @@ struct ScResourcePack
     struct ScPipeline *pipeline;
     struct SubBufferAllocator sb_allocator;
     struct SubBuffer *sb_mesh;
-    struct List_List_ScObject_ptr list_object_ptrs;
+    struct List_List_ScItem_ptr list_item_ptrs;
 };
 
-void update_resource_pack(struct ScResourcePack *resource_pack);
+void update_mesh_pack(struct ScMeshPack *mesh_pack);
 
-bool is_resource_pack_empty(struct ScResourcePack *resource_pack);
+bool is_mesh_pack_empty(struct ScMeshPack *mesh_pack);
 
-size_t resource_pack_get_mesh_count(struct ScResourcePack *resource_pack);
+size_t mesh_pack_get_mesh_count(struct ScMeshPack *mesh_pack);
 
-size_t resource_pack_get_instance_count(struct ScResourcePack *resource_pack, size_t mesh_id);
+size_t mesh_pack_get_instance_count(struct ScMeshPack *mesh_pack, size_t mesh_id);
 
-VkDeviceSize resource_pack_get_mesh_vertex_offset(struct ScResourcePack *resource_pack, size_t mesh_id);
+VkDeviceSize mesh_pack_get_mesh_vertex_offset(struct ScMeshPack *mesh_pack, size_t mesh_id);
 
-VkDeviceSize resource_pack_get_mesh_index_offset(struct ScResourcePack *resource_pack, size_t mesh_id);
+VkDeviceSize mesh_pack_get_mesh_index_offset(struct ScMeshPack *mesh_pack, size_t mesh_id);
 
-VkDeviceSize resource_pack_get_mesh_instance_offset(struct ScResourcePack *resource_pack, size_t mesh_id);
+VkDeviceSize mesh_pack_get_mesh_instance_offset(struct ScMeshPack *mesh_pack, size_t mesh_id);
 
-uint32_t resource_pack_get_mesh_index_count(struct ScResourcePack *resource_pack, size_t mesh_id);
+uint32_t mesh_pack_get_mesh_index_count(struct ScMeshPack *mesh_pack, size_t mesh_id);
 
-bool resource_pack_is_mesh_empty(struct ScResourcePack *resource_pack, size_t mesh_id);
+bool mesh_pack_is_mesh_empty(struct ScMeshPack *mesh_pack, size_t mesh_id);
 
-VkBuffer resource_pack_get_vkbuffer(struct ScResourcePack *resource_pack);
+VkBuffer mesh_pack_get_vkbuffer(struct ScMeshPack *mesh_pack);
 
 /*
 *   SC PIPELINE
 */
 
-typedef struct ScResourcePack *ScResourcePack_ptr;
-LIST(ScResourcePack_ptr);
+typedef struct ScMeshPack *ScMeshPack_ptr;
+LIST(ScMeshPack_ptr);
 
 typedef void (*pipeline_record_command_buffer_fn)(struct ScPipeline *pipeline, VkCommandBuffer cmd, uint32_t image_index);
 typedef void (*pipeline_update_fn)(struct ScPipeline *pipeline);
@@ -379,6 +397,7 @@ struct ScPipeline
     const struct List_VkImageView *present_views;
     pipeline_record_command_buffer_fn record_cmd_fn;
     pipeline_update_fn update_fn;
+    struct List_ScMeshPack_ptr packs_ptrs;
     union
     {
         struct
@@ -408,7 +427,6 @@ struct ScPipeline
             } forward;
             struct SubBufferAllocator sb_allocator;
             struct SubBuffer *sb_camera, *sb_light_global;
-            struct List_ScResourcePack_ptr packs_ptrs;
         } d3_deferred;
     };
 };

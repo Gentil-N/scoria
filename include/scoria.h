@@ -15,8 +15,10 @@ extern "C"
 
 struct ScCore;
 struct ScPipeline;
-struct ScResourcePack;
-struct ScObject;
+struct ScMeshPack;
+struct ScItem;
+struct ScAsset;
+struct ScAnimaton;
 
 struct ScCoreInfo
 {
@@ -32,7 +34,7 @@ struct ScCoreInfo
     } os_specific;
 };
 
-struct ScResourcePackInfo
+struct ScMeshPackInfo
 {
     size_t mesh_count;
     const void *vertex_data;
@@ -47,7 +49,7 @@ struct ScCameraData
     float view_proj[16];
 };
 
-struct ScObjectData
+struct ScItemData
 {
     float transform[16];
 };
@@ -99,15 +101,25 @@ void sc_attach_pipeline(struct ScCore *core, struct ScPipeline *pipeline);
 
 void sc_detach_pipeline(struct ScCore *core, struct ScPipeline *pipeline);
 
-struct ScResourcePack *sc_create_resource_pack(struct ScCore *core, struct ScPipeline *pipeline, const struct ScResourcePackInfo *resource_pack_info, size_t filename_count, const char **filenames);
-
-void sc_destroy_resource_pack(struct ScResourcePack *resource_pack);
-
 void sc_pipeline_update_camera(struct ScPipeline *pipeline, struct ScCameraData *camera_data);
 
-struct ScObject *sc_create_object(struct ScResourcePack *resource_pack, size_t mesh_id, const struct ScObjectData *object_data);
+struct ScAsset *sc_load_asset(const char *filename);
 
-void sc_destroy_object(struct ScResourcePack *resource_pack, struct ScObject *object);
+void sc_release_asset(struct ScAsset *asset);
+
+size_t sc_asset_get_mesh_count(struct ScAsset *asset);
+
+size_t sc_asset_get_mesh_id(struct ScAsset *asset, const char *mesh_name);
+
+struct ScMeshPack *sc_create_mesh_pack(struct ScCore *core, struct ScPipeline *pipeline, const struct ScMeshPackInfo *mesh_pack_info);
+
+struct ScMeshPack *sc_create_mesh_pack_from_asset(struct ScCore *core, struct ScPipeline *pipeline, struct ScAsset *asset, const size_t *max_instance_per_mesh);
+
+void sc_destroy_mesh_pack(struct ScMeshPack *mesh_pack);
+
+struct ScItem *sc_create_item(struct ScMeshPack *mesh_pack, size_t mesh_id, const struct ScItemData *item_data);
+
+void sc_destroy_item(struct ScMeshPack *mesh_pack, struct ScItem *item);
 
 #ifdef __cplusplus
 }
