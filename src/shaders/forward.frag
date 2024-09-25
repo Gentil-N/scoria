@@ -30,7 +30,7 @@ struct SunLight {
 #define MAX_LIGHT 100
 
 layout(binding = 3) uniform World {
-    vec4 ambient_color_x_ambient_power_x_2pad; // vec3 ambient_color, float ambient_strength
+    vec4 ambient; // vec3 ambient_color, float ambient_strength
     vec4 lights_count; // point_light_count, spot_light_count, sun_light_count, pad
     PointLight point_lights[MAX_LIGHT];
     //SpotLight spot_lights[MAX_LIGHT];
@@ -44,18 +44,18 @@ void main()
     vec3 normal = texture(sampler_normal, frag_uv).rgb;
     vec3 albedo = texture(sampler_albedo, frag_uv).rgb;
 
-    //vec3 ambient = vec3(world.ambient_color_x_ambient_power_x_2pad.rgb) * world.ambient_color_x_ambient_power_x_2pad.a;
-    vec3 ambient = vec3(1.0, 1.0, 1.0); // temp
-    vec3 result = albedo;
+    vec3 ambient = vec3(world.ambient.rgb) * world.ambient.a;
+    //vec3 ambient = vec3(1.0, 1.0, 1.0); // temp
+    vec3 result = vec3(albedo.r * world.ambient.r, albedo.g * world.ambient.g, albedo.b * world.ambient.b) * world.lights_count.x;
     // Point lights
-    //int point_light_count = int(round(world.lights_count.x));
-    //for (int i = 0; i < point_light_count; ++i)
-    //{
-    //    vec3 light_dir = normalize(world.point_lights[i].position.xyz - position);
-    //    float diff = max(dot(normal, light_dir), 0.0);
-    //    vec3 diffuse = diff * world.point_lights[i].color.rgb;
-    //    result += diffuse * albedo;
-    //}
+    int point_light_count = int(round(world.lights_count.x));
+    for (int i = 0; i < point_light_count; ++i)
+    {
+        vec3 light_dir = normalize(world.point_lights[i].position.xyz - position);
+        float diff = max(dot(normal, light_dir), 0.0);
+        vec3 diffuse = diff * world.point_lights[i].color.rgb;
+        result += diffuse * albedo;
+    }
 
     out_color = vec4(result, 1.0);
 }

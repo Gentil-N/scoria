@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(SRC_DIR  ${PROJECT_SOURCE_DIR})
 set(SRC_FILES   ${SRC_DIR}/test/main.c
+                ${SRC_DIR}/test/cutils_math.c
                 ${SRC_DIR}/src/ctools.c
                 ${SRC_DIR}/src/log.c
                 ${SRC_DIR}/src/volk.c

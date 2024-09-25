@@ -327,7 +327,7 @@ struct ScAsset
 };
 
 /*
-*   SC OBJECT
+*   SC ITEM
 */
 
 struct ScItem
@@ -379,6 +379,15 @@ bool mesh_pack_is_mesh_empty(struct ScMeshPack *mesh_pack, size_t mesh_id);
 VkBuffer mesh_pack_get_vkbuffer(struct ScMeshPack *mesh_pack);
 
 /*
+*   SC POINT LIGHT
+*/
+
+struct ScPointLight
+{
+    struct SubBuffer *subbuffer;
+};
+
+/*
 *   SC PIPELINE
 */
 
@@ -419,14 +428,18 @@ struct ScPipeline
                 struct Image depth_res;
                 VkRenderPass rpass;
                 struct List_VkFramebuffer fbufs;
-                VkDescriptorSetLayout composition_setlay, lights_setlay;
+                VkDescriptorSetLayout setlay;
                 VkPipelineLayout pipl;
                 VkPipeline pip;
                 VkDescriptorPool descpool;
-                VkDescriptorSet composition_desc_set;
+                VkDescriptorSet desc_set;
             } forward;
             struct SubBufferAllocator sb_allocator;
-            struct SubBuffer *sb_camera, *sb_light_global;
+            struct SubBuffer *sb_camera, *sb_ambient_light, *sb_light_count;
+            struct
+            {
+                float d[4];
+            } lights_count;
         } d3_deferred;
     };
 };
@@ -485,7 +498,6 @@ struct ScCore
     struct List_VkFence fences;
     uint32_t current_frame_index;
     struct List_ScPipeline_ptr pipeline_ptrs;
-    //struct ScPipeline pipeline;
 };
 
 #define vkcheck(vk_fn) {VkResult result = vk_fn; if (result != VK_SUCCESS) log_error("vulkan function error");}

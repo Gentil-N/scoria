@@ -101,12 +101,12 @@ void sc_destroy_mesh_pack(struct ScMeshPack *mesh_pack)
     ram_free(mesh_pack);
 }
 
-struct ScItem *sc_create_item(struct ScMeshPack *mesh_pack, size_t mesh_id, const struct ScItemData *item_data)
+struct ScItem *sc_create_item(struct ScMeshPack *mesh_pack, size_t mesh_id, const void *item_data)
 {
     assert_ndbg(mesh_id < mesh_pack->vertex_byte_offsets.size);
     ram_alloc_init(struct ScItem, item);
     item->subbuffer = allocate_subbuffer(&mesh_pack->sb_allocator, mesh_id + 1);
-    item->subbuffer->data = &item_data->transform[0];
+    item->subbuffer->data = item_data;
     list_ScItem_ptr_append(&mesh_pack->list_item_ptrs.data[mesh_id], &item);
     return item;
 }

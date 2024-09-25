@@ -142,6 +142,35 @@ void sc_release_asset(struct ScAsset *asset)
     ram_free(asset);
 }
 
-size_t sc_asset_get_mesh_count(struct ScAsset *asset);
+size_t sc_asset_get_mesh_count(struct ScAsset *asset)
+{
+    return asset->mesh_names.size;
+}
 
-size_t sc_asset_get_mesh_id(struct ScAsset *asset, const char *mesh_name);
+size_t sc_asset_get_mesh_id(struct ScAsset *asset, const char *mesh_name)
+{
+    for_list(i, asset->mesh_names)
+    {
+        if (strcmp(mesh_name, asset->mesh_names.data[i]) == 0) return i;
+    }
+    return SIZE_MAX;
+}
+
+const char *sc_asset_get_mesh_name(struct ScAsset *asset, size_t mesh_id)
+{
+    assert(mesh_id < asset->mesh_names.size);
+    return asset->mesh_names.data[mesh_id];
+}
+
+struct ScMeshPack *sc_create_mesh_pack_from_asset(struct ScCore *core, struct ScPipeline *pipeline, struct ScAsset *asset, const size_t *max_instance_per_mesh)
+{
+    struct ScMeshPackInfo pack_info = {0};
+    pack_info.mesh_count = asset->mesh_names.size;
+    if (pack_info.mesh_count == 0) return NULL;
+    pack_info.vertex_data = asset->vertices.data;
+    pack_info.index_data = asset->indices.data;
+    pack_info.vertex_byte_size_per_mesh = asset->vertex_byte_size_per_mesh.data;
+    pack_info.index_count_per_mesh = asset->index_count_per_mesh.data;
+    pack_info.max_instance_per_mesh = (size_t*)max_instance_per_mesh; // "const" removed to avoid compiler warnings
+    return sc_create_mesh_pack(core, pipeline, &pack_info);
+}
