@@ -101,7 +101,7 @@ void sc_destroy_mesh_pack(struct ScMeshPack *mesh_pack)
     ram_free(mesh_pack);
 }
 
-struct ScItem *sc_create_item(struct ScMeshPack *mesh_pack, size_t mesh_id, const void *item_data)
+struct ScItem *sc_mesh_pack_create_item(struct ScMeshPack *mesh_pack, size_t mesh_id, const struct ScItemData *item_data)
 {
     assert_ndbg(mesh_id < mesh_pack->vertex_byte_offsets.size);
     ram_alloc_init(struct ScItem, item);
@@ -111,7 +111,7 @@ struct ScItem *sc_create_item(struct ScMeshPack *mesh_pack, size_t mesh_id, cons
     return item;
 }
 
-void sc_destroy_item(struct ScMeshPack *mesh_pack, struct ScItem *item)
+void sc_mesh_pack_destroy_item(struct ScMeshPack *mesh_pack, struct ScItem *item)
 {
     list_ScItem_ptr_remove_on_finding(&mesh_pack->list_item_ptrs.data[item->subbuffer->_segment_id - 1], &item);
     free_subbuffer(&mesh_pack->sb_allocator, item->subbuffer);

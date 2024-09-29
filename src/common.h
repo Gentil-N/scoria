@@ -435,11 +435,8 @@ struct ScPipeline
                 VkDescriptorSet desc_set;
             } forward;
             struct SubBufferAllocator sb_allocator;
-            struct SubBuffer *sb_camera, *sb_ambient_light, *sb_light_count;
-            struct
-            {
-                float d[4];
-            } lights_count;
+            struct SubBuffer *sb_camera, *sb_ambient_light, *sb_sun_light, *sb_light_count;
+            union ScGlslVec4f *lights_count;
         } d3_deferred;
     };
 };

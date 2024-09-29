@@ -300,7 +300,7 @@ void create_device(struct ScCore *core, const struct ScCoreInfo *core_info)
         core->depth_format = find_suitable_format(desc.ph_device, candidates, 3, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
     }
     {
-        core->image_count = min(core->sf_caps.minImageCount + 1, core->sf_caps.maxImageCount);
+        core->image_count = core->sf_caps.maxImageCount == 0 ? core->sf_caps.minImageCount + 1 : min(core->sf_caps.minImageCount + 1, core->sf_caps.maxImageCount);
     }
 
     core->phd = desc.ph_device;

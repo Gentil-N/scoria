@@ -9,34 +9,29 @@
 
 const size_t MAX_POINT_LIGHT = 10;
 
-float data[4] = {0.7f, 0.5f, 0.2f, 0.05f};
-
-struct
-{
-    float d[4];
-} lights_count;
-
 void pipeline_create_buffer_resources(struct ScPipeline *pipeline)
 {
-    size_t segment_count = 4;
-    struct SubBufferSegmentInfo segment_infos[4];
+    size_t segment_count = 5;
+    struct SubBufferSegmentInfo segment_infos[5];
     segment_infos[0].max_subbuffer = 1;
     segment_infos[0].subbuffer_size = sizeof(float) * 16;
     segment_infos[1].max_subbuffer = 1;
     segment_infos[1].subbuffer_size = sizeof(float) * 4;
     segment_infos[2].max_subbuffer = 1;
-    segment_infos[2].subbuffer_size = sizeof(float) * 4;
-    segment_infos[3].max_subbuffer = MAX_POINT_LIGHT;
-    segment_infos[3].subbuffer_size = sizeof(float) * 4 * 3;
+    segment_infos[2].subbuffer_size = sizeof(float) * 4 * 2;
+    segment_infos[3].max_subbuffer = 1;
+    segment_infos[3].subbuffer_size = sizeof(float) * 4;
+    segment_infos[4].max_subbuffer = MAX_POINT_LIGHT;
+    segment_infos[4].subbuffer_size = sizeof(float) * 4 * 3;
     pipeline->d3_deferred.sb_allocator = create_subbuffer_allocator(pipeline->automaton, AUTOMATON_QUEUE_TYPE_GRAPHICS, AUTOMATON_QUEUE_TYPE_GRAPHICS, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, segment_count, segment_infos);
     pipeline->d3_deferred.sb_camera = allocate_subbuffer(&pipeline->d3_deferred.sb_allocator, 0);
     pipeline->d3_deferred.sb_ambient_light = allocate_subbuffer(&pipeline->d3_deferred.sb_allocator, 1);
-    pipeline->d3_deferred.sb_light_count = allocate_subbuffer(&pipeline->d3_deferred.sb_allocator, 2);
-    pipeline->d3_deferred.lights_count.d[0] = 1.0f;
-    //pipeline->d3_deferred.lights_count.spot = 1.0f;
-    //pipeline->d3_deferred.lights_count.sun = 1.0f;
-    lights_count.d[0] = 1.0f;
-    pipeline->d3_deferred.sb_light_count->data = lights_count.d;
+    pipeline->d3_deferred.sb_sun_light = allocate_subbuffer(&pipeline->d3_deferred.sb_allocator, 2);
+    pipeline->d3_deferred.sb_light_count = allocate_subbuffer(&pipeline->d3_deferred.sb_allocator, 3);
+
+    pipeline->d3_deferred.lights_count = ram_alloc(union ScGlslVec4f);
+    pipeline->d3_deferred.lights_count->data[0] = 1.0f;
+    pipeline->d3_deferred.sb_light_count->data = pipeline->d3_deferred.lights_count;
     pipeline->d3_deferred.sb_light_count->updated = true;
 }
 
@@ -132,8 +127,8 @@ void off_create_pipeline(struct ScPipeline *pipeline)
     VkPipelineShaderStageCreateInfo frag_stage_info = init_pipeline_shader_stage_info(VK_SHADER_STAGE_FRAGMENT_BIT, sfrag, "main");
     VkPipelineShaderStageCreateInfo shad_stages_info[] = {vert_stage_info, frag_stage_info};
 
-    VkFormat per_vertex_formats[] = {VK_FORMAT_R32G32B32_SFLOAT, VK_FORMAT_R32G32B32_SFLOAT};
-    VkFormat per_instance_formats[] = {VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R32G32B32A32_SFLOAT};
+    //VkFormat per_vertex_formats[] = {VK_FORMAT_R32G32B32_SFLOAT, VK_FORMAT_R32G32B32_SFLOAT};
+    //VkFormat per_instance_formats[] = {VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R32G32B32A32_SFLOAT, VK_FORMAT_R32G32B32A32_SFLOAT};
     VkVertexInputBindingDescription bindings[] = {
         vkiVertexInputBindingDescription(0, sizeof(float) * 3 + sizeof(float) * 3 + sizeof(float) * 3, VK_VERTEX_INPUT_RATE_VERTEX),
         vkiVertexInputBindingDescription(1, sizeof(float) * 16, VK_VERTEX_INPUT_RATE_INSTANCE)};
@@ -313,7 +308,7 @@ void for_create_pipeline(struct ScPipeline *pipeline)
 void for_create_descriptors(struct ScPipeline *pipeline)
 {
     VkDescriptorPoolSize pool_sizes[] = {
-        vkiDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1),
+        vkiDescriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3),
         vkiDescriptorPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1)
     };
     VkDescriptorPoolCreateInfo info = vkiDescriptorPoolCreateInfo(1, 2, pool_sizes);
@@ -327,7 +322,7 @@ void for_create_descriptors(struct ScPipeline *pipeline)
         vkiDescriptorImageInfo(pipeline->d3_deferred.offscreen.sampler, pipeline->d3_deferred.offscreen.albedo_res.view, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
     };
 
-    VkDescriptorBufferInfo buffer_info = vkiDescriptorBufferInfo(pipeline->d3_deferred.sb_allocator.gpu_buffer.handle, pipeline->d3_deferred.sb_ambient_light->_offset,  get_subbuffer_segment_max_size(&pipeline->d3_deferred.sb_allocator, 1) + get_subbuffer_segment_max_size(&pipeline->d3_deferred.sb_allocator, 2) + get_subbuffer_segment_max_size(&pipeline->d3_deferred.sb_allocator, 3));
+    VkDescriptorBufferInfo buffer_info = vkiDescriptorBufferInfo(pipeline->d3_deferred.sb_allocator.gpu_buffer.handle, pipeline->d3_deferred.sb_ambient_light->_offset,  get_subbuffer_segment_max_size(&pipeline->d3_deferred.sb_allocator, 1) + get_subbuffer_segment_max_size(&pipeline->d3_deferred.sb_allocator, 2) + get_subbuffer_segment_max_size(&pipeline->d3_deferred.sb_allocator, 3) + get_subbuffer_segment_max_size(&pipeline->d3_deferred.sb_allocator, 4));
 
     VkWriteDescriptorSet writes[] = {
         vkiWriteDescriptorSet(pipeline->d3_deferred.forward.desc_set, 0, 0, 1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &image_infos[0], NULL, NULL),
@@ -400,6 +395,7 @@ void destroy_pipeline_d3_deferred(struct ScPipeline *pipeline)
     automaton_collect_image(pipeline->automaton, &pipeline->d3_deferred.offscreen.normal_res);
     automaton_collect_image(pipeline->automaton, &pipeline->d3_deferred.offscreen.position_res);
     /// BUFFER RESOURCES
+    ram_free(pipeline->d3_deferred.lights_count);
     destroy_subbuffer_allocator(&pipeline->d3_deferred.sb_allocator);
 }
 
@@ -477,12 +473,6 @@ void pipeline_d3_deferred_record_cmd(struct ScPipeline *pipeline, VkCommandBuffe
 	vkCmdEndRenderPass(cmd);
 }
 
-void sc_pipeline_update_camera(struct ScPipeline *pipeline, const void *camera_data)
-{
-    pipeline->d3_deferred.sb_camera->data = camera_data;
-    pipeline->d3_deferred.sb_camera->updated = true;
-}
-
 void pipeline_d3_deferred_update(struct ScPipeline *pipeline)
 {
     subbuffer_allocator_update(&pipeline->d3_deferred.sb_allocator);
@@ -521,27 +511,39 @@ void sc_destroy_pipeline(struct ScPipeline *pipeline)
     ram_free(pipeline);
 }
 
-struct ScPointLight *sc_create_point_light(struct ScPipeline *pipeline, const struct ScPointLightData *light_data)
+void sc_pipeline_set_camera(struct ScPipeline *pipeline, const struct ScCameraData *camera_data)
+{
+    pipeline->d3_deferred.sb_camera->data = camera_data;
+    pipeline->d3_deferred.sb_camera->updated = true;
+}
+
+struct ScPointLight *sc_pipeline_create_point_light(struct ScPipeline *pipeline, const struct ScPointLightData *light_data)
 {
     ram_alloc_init(struct ScPointLight, light);
-    light->subbuffer = allocate_subbuffer(&pipeline->d3_deferred.sb_allocator, 3);
+    light->subbuffer = allocate_subbuffer(&pipeline->d3_deferred.sb_allocator, 4);
     light->subbuffer->data = light_data;
     light->subbuffer->updated = true;
-    //pipeline->d3_deferred.lights_count.d[0] += 1.0f;
-    //pipeline->d3_deferred.sb_light_count->updated = true;
+    pipeline->d3_deferred.lights_count->data[0] += 1.0f;
+    pipeline->d3_deferred.sb_light_count->updated = true;
     return light;
 }
 
-void sc_destroy_point_light(struct ScPipeline *pipeline, struct ScPointLight *light)
+void sc_pipeline_destroy_point_light(struct ScPipeline *pipeline, struct ScPointLight *light)
 {
     free_subbuffer(&pipeline->d3_deferred.sb_allocator, light->subbuffer);
-    //pipeline->d3_deferred.lights_count.d[0] -= 1;
-    //pipeline->d3_deferred.sb_light_count->updated = true;
+    pipeline->d3_deferred.lights_count->data[0] -= 1.0f;
+    pipeline->d3_deferred.sb_light_count->updated = true;
     ram_free(light);
 }
 
-void sc_set_ambient_light(struct ScPipeline *pipeline, struct ScAmbientLightData *light_data)
+void sc_pipeline_set_ambient_light(struct ScPipeline *pipeline, struct ScAmbientLightData *light_data)
 {
     pipeline->d3_deferred.sb_ambient_light->data = light_data;
     pipeline->d3_deferred.sb_ambient_light->updated = true;
+}
+
+void sc_pipeline_set_sun_light(struct ScPipeline *pipeline, struct ScSunLightData *sun_light)
+{
+    pipeline->d3_deferred.sb_sun_light->data = sun_light;
+    pipeline->d3_deferred.sb_sun_light->updated = true;
 }

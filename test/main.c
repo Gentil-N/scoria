@@ -47,7 +47,7 @@ int main()
     glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    GLFWwindow *window = glfwCreateWindow(width, height, "NoName", NULL, NULL);
+    GLFWwindow *window = glfwCreateWindow(width, height, "Test", NULL, NULL);
 
     struct ScCoreInfo core_info = {0};
     core_info.window_width = width;
@@ -61,34 +61,34 @@ int main()
     struct ScPipeline *pipeline = sc_create_pipeline(core, SC_PIPELINE_TYPE_3D_DEFERRED);
     sc_attach_pipeline(core, pipeline);
 
-    float vertices[] = {-0.25f, -0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.25f, -0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.25f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, -0.25f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
-        0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f};
-    uint32_t indices[] = {0, 1, 2, 2, 3, 0, 0, 1, 2};
-    size_t vertex_byte_size_per_mesh[] = {sizeof(float) * 3 * 3 * 4, sizeof(float) * 3 * 3 * 3};
-    size_t index_count_per_mesh[] = {6, 3};
-    size_t max_instance_per_mesh[] = {10, 10, 10, 10, 10};
-
     struct mat4f mat_id = mat4f_identity();
     struct mat4f mat_cam_perspective, mat_cam_view, mat_cam_total;
     mat4f_set_perspective(&mat_cam_perspective, (float)width / (float)height, 90.0f, 0.01f, 100.0f);
     mat4f_set_identity(&mat_cam_view);
     mat4f_set_mul(&mat_cam_perspective, &mat_cam_view, &mat_cam_total);
-    sc_pipeline_update_camera(pipeline, mat_cam_total.m);
+    sc_pipeline_set_camera(pipeline, (const struct ScCameraData*)&mat_cam_total);
     struct ScAmbientLightData ambient_light = {0};
-    ambient_light.color.comps.r = 1.0f;
-    ambient_light.color.comps.g = 1.0f;
-    ambient_light.color.comps.b = 1.0f;
-    ambient_light.color.comps.a = 0.2f;
-    sc_set_ambient_light(pipeline, &ambient_light);
+    ambient_light.color.r = 0.1f;
+    ambient_light.color.g = 0.1f;
+    ambient_light.color.b = 0.1f;
+    sc_pipeline_set_ambient_light(pipeline, &ambient_light);
+    struct ScSunLightData sun_light_data = {0};
+    sun_light_data.color.r = 0.0f;
+    sun_light_data.color.g = 0.0f;
+    sun_light_data.color.b = 0.0f;
+    sun_light_data.direction.x = -10.0f;
+    sun_light_data.direction.y = -10.0f;
+    sun_light_data.direction.z = -10.0f;
+    sc_pipeline_set_sun_light(pipeline, &sun_light_data);
     struct ScPointLightData light_data = {0};
-    light_data.color.comps.r = 1.0f;
-    light_data.color.comps.g = 1.0f;
-    light_data.color.comps.b = 1.0f;
-    light_data.position.coords.x = 10.0f;
-    light_data.position.coords.y = 10.0f;
-    light_data.position.coords.z = 10.0f;
-    light_data.power = 10.0f;
-    struct ScPointLight *light = sc_create_point_light(pipeline, &light_data);
+    light_data.color.r = 1.0f;
+    light_data.color.g = 1.0f;
+    light_data.color.b = 1.0f;
+    light_data.position.x = 1.0f;
+    light_data.position.y = -5.0f;
+    light_data.position.z = 10.0f;
+    light_data.power.data[0] = 10.0f;
+    struct ScPointLight *light = sc_pipeline_create_point_light(pipeline, &light_data);
 
     struct ScAsset *asset = sc_load_asset("./res/anim-test.glb");
     for (size_t i = 0; i < sc_asset_get_mesh_count(asset); ++i)
@@ -96,17 +96,27 @@ int main()
         printf("mesh name: %s\n", sc_asset_get_mesh_name(asset, i));
     }
 
-    struct ScMeshPackInfo pack_info = {0};
+    /*float vertices[] = {-0.25f, -0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.25f, -0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.25f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, -0.25f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+        0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f};
+    uint32_t indices[] = {0, 1, 2, 2, 3, 0, 0, 1, 2};
+    size_t vertex_byte_size_per_mesh[] = {sizeof(float) * 3 * 3 * 4, sizeof(float) * 3 * 3 * 3};
+    size_t index_count_per_mesh[] = {6, 3};*/
+    size_t max_instance_per_mesh[] = {10, 10, 10, 10, 10};
+    /*struct ScMeshPackInfo pack_info = {0};
     pack_info.mesh_count = 2;
     pack_info.vertex_data = vertices;
     pack_info.index_data = indices;
     pack_info.vertex_byte_size_per_mesh = vertex_byte_size_per_mesh;
     pack_info.index_count_per_mesh = index_count_per_mesh;
-    pack_info.max_instance_per_mesh = max_instance_per_mesh;
+    pack_info.max_instance_per_mesh = max_instance_per_mesh;*/
     //struct ScMeshPack *pack = sc_create_mesh_pack(core,pipeline, &pack_info);
     struct ScMeshPack *pack = sc_create_mesh_pack_from_asset(core, pipeline, asset, max_instance_per_mesh);
-    struct ScItem *item_a = sc_create_item(pack, 4, mat_id.m);
-    struct ScItem *item_b = sc_create_item(pack, 4, mat_id.m);
+    struct mat4f mat_a = mat4f_identity();
+    mat4f_translate(&mat_a, 5.0f, 0.0f, 0.0f);
+    struct mat4f mat_b = mat4f_identity();
+    mat4f_translate(&mat_b, -5.0f, 0.0f, 0.0f);
+    struct ScItem *item_a = sc_mesh_pack_create_item(pack, 4, (const struct ScItemData*)mat_a.m);
+    struct ScItem *item_b = sc_mesh_pack_create_item(pack, 3, (const struct ScItemData*)mat_b.m);
 
     glfwSetScrollCallback(window, scroll_callback);
     double cursor_xpos, cursor_ypos;
@@ -133,15 +143,15 @@ int main()
 
         mat4f_rot_y(mat4f_rot_x(mat4f_set_translation(&mat_cam_view, 0.0f, 0.0f, scroll), rotx), roty);
         mat4f_set_mul(&mat_cam_perspective, &mat_cam_view, &mat_cam_total);
-        sc_pipeline_update_camera(pipeline, mat_cam_total.m);
+        sc_pipeline_set_camera(pipeline, (const struct ScCameraData*)&mat_cam_total);
 
         sc_update_core(core);
         glfwPollEvents();
     }
 
-    sc_destroy_point_light(pipeline, light);
-    sc_destroy_item(pack, item_b);
-    sc_destroy_item(pack, item_a);
+    sc_pipeline_destroy_point_light(pipeline, light);
+    sc_mesh_pack_destroy_item(pack, item_b);
+    sc_mesh_pack_destroy_item(pack, item_a);
     sc_destroy_mesh_pack(pack);
     sc_release_asset(asset);
     sc_detach_pipeline(core, pipeline);

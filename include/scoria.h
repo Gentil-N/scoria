@@ -45,28 +45,29 @@ struct ScMeshPackInfo
     size_t *max_instance_per_mesh;
 };
 
+union ScGlslVec4f
+{
+    struct { float x, y, z, w; };
+    struct { float r, g, b, a; };
+    float data[4];
+};
+
+struct ScSunLightData
+{
+    union ScGlslVec4f color;
+    union ScGlslVec4f direction;
+};
+
 struct ScPointLightData
 {
-    union
-    {
-        struct { float x, y, z, _w/*pad*/; } coords;
-        float data[4];
-    } position;
-    union
-    {
-        struct { float r, g, b, _a/*pad*/; } comps;
-        float data[4];
-    } color;
-    float power;
+    union ScGlslVec4f position;
+    union ScGlslVec4f color;
+    union ScGlslVec4f power;
 };
 
 struct ScAmbientLightData
 {
-    union
-    {
-        struct { float r, g, b, a; } comps;
-        float data[4];
-    } color;
+    union ScGlslVec4f color;
 };
 
 enum ScLogLevel
@@ -81,6 +82,16 @@ enum ScPipelineType
 {
     SC_PIPELINE_TYPE_3D_DEFERRED = 1,
     SC_PIPELINE_TYPE_2D_UI = 2
+};
+
+struct ScItemData
+{
+    float transform[16];
+};
+
+struct ScCameraData
+{
+    float view_proj[16];
 };
 
 typedef void (*sc_log_callback_fn)(int level, int code, const char *file, int line, const char *msg);
@@ -101,7 +112,15 @@ void sc_attach_pipeline(struct ScCore *core, struct ScPipeline *pipeline);
 
 void sc_detach_pipeline(struct ScCore *core, struct ScPipeline *pipeline);
 
-void sc_pipeline_update_camera(struct ScPipeline *pipeline, const void *camera_data);
+void sc_pipeline_set_camera(struct ScPipeline *pipeline, const struct ScCameraData *camera_data);
+
+struct ScPointLight *sc_pipeline_create_point_light(struct ScPipeline *pipeline, const struct ScPointLightData *light_data);
+
+void sc_pipeline_destroy_point_light(struct ScPipeline *pipeline, struct ScPointLight *light);
+
+void sc_pipeline_set_ambient_light(struct ScPipeline *pipeline, struct ScAmbientLightData *light_data);
+
+void sc_pipeline_set_sun_light(struct ScPipeline *pipeline, struct ScSunLightData *sun_light);
 
 struct ScAsset *sc_load_asset(const char *filename);
 
@@ -119,15 +138,9 @@ struct ScMeshPack *sc_create_mesh_pack_from_asset(struct ScCore *core, struct Sc
 
 void sc_destroy_mesh_pack(struct ScMeshPack *mesh_pack);
 
-struct ScItem *sc_create_item(struct ScMeshPack *mesh_pack, size_t mesh_id, const void *item_data);
+struct ScItem *sc_mesh_pack_create_item(struct ScMeshPack *mesh_pack, size_t mesh_id, const struct ScItemData *item_data);
 
-void sc_destroy_item(struct ScMeshPack *mesh_pack, struct ScItem *item);
-
-struct ScPointLight *sc_create_point_light(struct ScPipeline *pipeline, const struct ScPointLightData *light_data);
-
-void sc_destroy_point_light(struct ScPipeline *pipeline, struct ScPointLight *light);
-
-void sc_set_ambient_light(struct ScPipeline *pipeline, struct ScAmbientLightData *light_data);
+void sc_mesh_pack_destroy_item(struct ScMeshPack *mesh_pack, struct ScItem *item);
 
 #ifdef __cplusplus
 }
