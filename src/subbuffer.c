@@ -58,7 +58,6 @@ struct SubBuffer *segment_allocate_subbuffer(struct SubBufferSegment *segment, s
 {
     assert_ndbg(segment->subbuffer_ptrs.size < segment->info.max_subbuffer);
     struct SubBuffer *subbuffer = create_subbuffer(segment->base_offset + segment->subbuffer_ptrs.size * segment->info.subbuffer_size, segment_id);
-    subbuffer->updated = true;
     list_SubBuffer_ptr_append(&segment->subbuffer_ptrs, &subbuffer);
     return subbuffer;
 }

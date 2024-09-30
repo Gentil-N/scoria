@@ -1,5 +1,4 @@
 #include "common.h"
-#include "ctools.h"
 #include "log.h"
 
 #include <assimp/cimport.h>

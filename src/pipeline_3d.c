@@ -1,11 +1,11 @@
 #include "common.h"
 
-#include "ctools.h"
 #include "log.h"
 #include "shaders/forward.frag.c"
 #include "shaders/forward.vert.c"
 #include "shaders/offscreen.frag.c"
 #include "shaders/offscreen.vert.c"
+#include <vulkan/vulkan_core.h>
 
 const size_t MAX_POINT_LIGHT = 10;
 
@@ -144,7 +144,7 @@ void off_create_pipeline(struct ScPipeline *pipeline)
     VkPipelineVertexInputStateCreateInfo vinput_info = vkiPipelineVertexInputStateCreateInfo(2, bindings, 7, attributes);
     VkPipelineInputAssemblyStateCreateInfo iass_info = vkiPipelineInputAssemblyStateCreateInfo(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, VK_FALSE);
     VkPipelineViewportStateCreateInfo vstate_info = vkiPipelineViewportStateCreateInfo(1, NULL, 1, NULL);
-    VkPipelineRasterizationStateCreateInfo rasterizer_info = vkiPipelineRasterizationStateCreateInfo(VK_FALSE, VK_FALSE, VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE /* temp */, VK_FRONT_FACE_CLOCKWISE, VK_FALSE, 0.0f, 0.0f, 0.0f, 1.0f);
+    VkPipelineRasterizationStateCreateInfo rasterizer_info = vkiPipelineRasterizationStateCreateInfo(VK_FALSE, VK_FALSE, VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT /* temp */, VK_FRONT_FACE_CLOCKWISE, VK_FALSE, 0.0f, 0.0f, 0.0f, 1.0f);
     VkPipelineMultisampleStateCreateInfo multisampling = vkiPipelineMultisampleStateCreateInfo(VK_SAMPLE_COUNT_1_BIT, VK_FALSE, 0.0f, NULL, VK_FALSE, VK_FALSE);
     VkPipelineColorBlendAttachmentState color_atts[] = {
         vkiPipelineColorBlendAttachmentState(VK_FALSE, VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD, VK_BLEND_FACTOR_ZERO, VK_BLEND_FACTOR_ZERO, VK_BLEND_OP_ADD, VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT),
@@ -345,17 +345,17 @@ void create_forward_resources(struct ScPipeline *pipeline)
     for_create_descriptors(pipeline);
 }
 
-struct ScPipeline create_pipeline_d3_deferred(struct Automaton *automaton, VkExtent2D extent, VkFormat present_format, VkFormat depth_format, const struct List_VkImageView *present_views)
+struct ScPipeline create_pipeline_3d(struct Automaton *automaton, VkExtent2D extent, VkFormat present_format, VkFormat depth_format, const struct List_VkImageView *present_views)
 {
     struct ScPipeline pipeline = {0};
-    pipeline.type = SC_PIPELINE_TYPE_3D_DEFERRED;
+    pipeline.type = PIPELINE_TYPE_3D;
     pipeline.automaton = automaton;
     pipeline.extent = extent;
     pipeline.present_format = present_format;
     pipeline.depth_format = depth_format;
     pipeline.present_views = present_views;
-    pipeline.record_cmd_fn = pipeline_d3_deferred_record_cmd;
-    pipeline.update_fn = pipeline_d3_deferred_update;
+    pipeline.record_cmd_fn = pipeline_3d_record_cmd;
+    pipeline.update_fn = pipeline_3d_update;
     pipeline_create_buffer_resources(&pipeline);
     create_offscreen_resources(&pipeline);
     create_forward_resources(&pipeline);
@@ -363,7 +363,7 @@ struct ScPipeline create_pipeline_d3_deferred(struct Automaton *automaton, VkExt
     return pipeline;
 }
 
-void destroy_pipeline_d3_deferred(struct ScPipeline *pipeline)
+void destroy_pipeline_3d(struct ScPipeline *pipeline)
 {
     list_ScMeshPack_ptr_destroy(&pipeline->packs_ptrs);
     /// FORWARD
@@ -399,7 +399,7 @@ void destroy_pipeline_d3_deferred(struct ScPipeline *pipeline)
     destroy_subbuffer_allocator(&pipeline->d3_deferred.sb_allocator);
 }
 
-void pipeline_d3_deferred_record_cmd(struct ScPipeline *pipeline, VkCommandBuffer cmd, uint32_t image_index)
+void pipeline_3d_record_cmd(struct ScPipeline *pipeline, VkCommandBuffer cmd, uint32_t image_index)
 {
     bool empty_flag = true;
     for_list(i, pipeline->packs_ptrs)
@@ -473,7 +473,7 @@ void pipeline_d3_deferred_record_cmd(struct ScPipeline *pipeline, VkCommandBuffe
 	vkCmdEndRenderPass(cmd);
 }
 
-void pipeline_d3_deferred_update(struct ScPipeline *pipeline)
+void pipeline_3d_update(struct ScPipeline *pipeline)
 {
     subbuffer_allocator_update(&pipeline->d3_deferred.sb_allocator);
     for_list(i, pipeline->packs_ptrs)
@@ -482,42 +482,26 @@ void pipeline_d3_deferred_update(struct ScPipeline *pipeline)
     }
 }
 
-struct ScPipeline *sc_create_pipeline(struct ScCore *core, enum ScPipelineType type)
+struct ScPipeline *sc_create_pipeline_3d(struct ScCore *core, const struct ScPipeline3dInfo *pipeline_info)
 {
     ram_alloc_init(struct ScPipeline, pipeline);
-    switch (type)
-    {
-    case SC_PIPELINE_TYPE_3D_DEFERRED:
-    *pipeline = create_pipeline_d3_deferred(&core->automaton, core->sf_extent, core->sf_format.format, core->depth_format, &core->sviews);
-    break;
-    default:
-    log_error("pipeline not supported yet");
-    break;
-    }
+    *pipeline = create_pipeline_3d(&core->automaton, core->sf_extent, core->sf_format.format, core->depth_format, &core->sviews);
     return pipeline;
 }
 
-void sc_destroy_pipeline(struct ScPipeline *pipeline)
+void sc_destroy_pipeline_3d(struct ScPipeline *pipeline)
 {
-    switch (pipeline->type)
-    {
-    case SC_PIPELINE_TYPE_3D_DEFERRED:
-    destroy_pipeline_d3_deferred(pipeline);
-    break;
-    default:
-    log_error("pipeline not supported yet");
-    break;
-    }
+    destroy_pipeline_3d(pipeline);
     ram_free(pipeline);
 }
 
-void sc_pipeline_set_camera(struct ScPipeline *pipeline, const struct ScCameraData *camera_data)
+void sc_pipeline_3d_set_camera_data(struct ScPipeline *pipeline, const struct ScCameraData *camera_data)
 {
     pipeline->d3_deferred.sb_camera->data = camera_data;
     pipeline->d3_deferred.sb_camera->updated = true;
 }
 
-struct ScPointLight *sc_pipeline_create_point_light(struct ScPipeline *pipeline, const struct ScPointLightData *light_data)
+struct ScPointLight *sc_pipeline_3d_create_point_light(struct ScPipeline *pipeline, const struct ScPointLightData *light_data)
 {
     ram_alloc_init(struct ScPointLight, light);
     light->subbuffer = allocate_subbuffer(&pipeline->d3_deferred.sb_allocator, 4);
@@ -528,7 +512,7 @@ struct ScPointLight *sc_pipeline_create_point_light(struct ScPipeline *pipeline,
     return light;
 }
 
-void sc_pipeline_destroy_point_light(struct ScPipeline *pipeline, struct ScPointLight *light)
+void sc_pipeline_3d_destroy_point_light(struct ScPipeline *pipeline, struct ScPointLight *light)
 {
     free_subbuffer(&pipeline->d3_deferred.sb_allocator, light->subbuffer);
     pipeline->d3_deferred.lights_count->data[0] -= 1.0f;
@@ -536,13 +520,19 @@ void sc_pipeline_destroy_point_light(struct ScPipeline *pipeline, struct ScPoint
     ram_free(light);
 }
 
-void sc_pipeline_set_ambient_light(struct ScPipeline *pipeline, struct ScAmbientLightData *light_data)
+void sc_point_light_set_data(struct ScPointLight *light, const struct ScPointLightData *light_data)
+{
+    light->subbuffer->data = light_data;
+    light->subbuffer->updated = true;
+}
+
+void sc_pipeline_3d_set_ambient_light(struct ScPipeline *pipeline, struct ScAmbientLightData *light_data)
 {
     pipeline->d3_deferred.sb_ambient_light->data = light_data;
     pipeline->d3_deferred.sb_ambient_light->updated = true;
 }
 
-void sc_pipeline_set_sun_light(struct ScPipeline *pipeline, struct ScSunLightData *sun_light)
+void sc_pipeline_3d_set_sun_light(struct ScPipeline *pipeline, struct ScSunLightData *sun_light)
 {
     pipeline->d3_deferred.sb_sun_light->data = sun_light;
     pipeline->d3_deferred.sb_sun_light->updated = true;

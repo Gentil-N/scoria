@@ -35,6 +35,11 @@ struct ScCoreInfo
     } os_specific;
 };
 
+struct ScPipeline3dInfo
+{
+    size_t max_point_light;
+};
+
 struct ScMeshPackInfo
 {
     size_t mesh_count;
@@ -78,12 +83,6 @@ enum ScLogLevel
     SC_LOG_LEVEL_ERROR = 4,
 };
 
-enum ScPipelineType
-{
-    SC_PIPELINE_TYPE_3D_DEFERRED = 1,
-    SC_PIPELINE_TYPE_2D_UI = 2
-};
-
 struct ScItemData
 {
     float transform[16];
@@ -104,23 +103,25 @@ void sc_end_core(struct ScCore *core);
 
 void sc_update_core(struct ScCore *core);
 
-struct ScPipeline *sc_create_pipeline(struct ScCore *core, enum ScPipelineType type);
+struct ScPipeline *sc_create_pipeline_3d(struct ScCore *core, const struct ScPipeline3dInfo *pipeline_info);
 
-void sc_destroy_pipeline(struct ScPipeline *pipeline);
+void sc_destroy_pipeline_3d(struct ScPipeline *pipeline);
 
 void sc_attach_pipeline(struct ScCore *core, struct ScPipeline *pipeline);
 
 void sc_detach_pipeline(struct ScCore *core, struct ScPipeline *pipeline);
 
-void sc_pipeline_set_camera(struct ScPipeline *pipeline, const struct ScCameraData *camera_data);
+void sc_pipeline_3d_set_camera_data(struct ScPipeline *pipeline, const struct ScCameraData *camera_data);
 
-struct ScPointLight *sc_pipeline_create_point_light(struct ScPipeline *pipeline, const struct ScPointLightData *light_data);
+struct ScPointLight *sc_pipeline_3d_create_point_light(struct ScPipeline *pipeline, const struct ScPointLightData *light_data);
 
-void sc_pipeline_destroy_point_light(struct ScPipeline *pipeline, struct ScPointLight *light);
+void sc_pipeline_3d_destroy_point_light(struct ScPipeline *pipeline, struct ScPointLight *light);
 
-void sc_pipeline_set_ambient_light(struct ScPipeline *pipeline, struct ScAmbientLightData *light_data);
+void sc_point_light_set_data(struct ScPointLight *light, const struct ScPointLightData *light_data);
 
-void sc_pipeline_set_sun_light(struct ScPipeline *pipeline, struct ScSunLightData *sun_light);
+void sc_pipeline_3d_set_ambient_light(struct ScPipeline *pipeline, struct ScAmbientLightData *light_data);
+
+void sc_pipeline_3d_set_sun_light(struct ScPipeline *pipeline, struct ScSunLightData *sun_light);
 
 struct ScAsset *sc_load_asset(const char *filename);
 
@@ -141,6 +142,8 @@ void sc_destroy_mesh_pack(struct ScMeshPack *mesh_pack);
 struct ScItem *sc_mesh_pack_create_item(struct ScMeshPack *mesh_pack, size_t mesh_id, const struct ScItemData *item_data);
 
 void sc_mesh_pack_destroy_item(struct ScMeshPack *mesh_pack, struct ScItem *item);
+
+void sc_item_set_data(struct ScItem *item, const struct ScItemData *item_data);
 
 #ifdef __cplusplus
 }

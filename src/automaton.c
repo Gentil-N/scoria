@@ -1,6 +1,4 @@
 #include "common.h"
-#include "ctools.h"
-#include "log.h"
 #include <vulkan/vulkan_core.h>
 
 struct AutomatonCmdStack create_cmd_stack(VkDevice device, VkCommandBuffer cmd)

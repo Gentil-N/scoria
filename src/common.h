@@ -16,7 +16,7 @@
 
 #include "../include/scoria.h"
 
-#include "ctools.h"
+#include "cutils_base.h"
 #include "log.h"
 #include "vki.h"
 
@@ -391,6 +391,12 @@ struct ScPointLight
 *   SC PIPELINE
 */
 
+enum PipelineType
+{
+    PIPELINE_TYPE_3D = 1,
+    PIPELINE_TYPE_2D = 2
+};
+
 typedef struct ScMeshPack *ScMeshPack_ptr;
 LIST(ScMeshPack_ptr);
 
@@ -399,7 +405,7 @@ typedef void (*pipeline_update_fn)(struct ScPipeline *pipeline);
 
 struct ScPipeline
 {
-    enum ScPipelineType type;
+    enum PipelineType type;
     struct Automaton *automaton;
     VkExtent2D extent;
     VkFormat present_format, depth_format;
@@ -441,13 +447,13 @@ struct ScPipeline
     };
 };
 
-struct ScPipeline create_pipeline_d3_deferred(struct Automaton *automaton, VkExtent2D extent, VkFormat present_format, VkFormat depth_format, const struct List_VkImageView *present_views);
+struct ScPipeline create_pipeline_3d(struct Automaton *automaton, VkExtent2D extent, VkFormat present_format, VkFormat depth_format, const struct List_VkImageView *present_views);
 
-void destroy_pipeline_d3_deferred(struct ScPipeline *pipeline);
+void destroy_pipeline_3d(struct ScPipeline *pipeline);
 
-void pipeline_d3_deferred_record_cmd(struct ScPipeline *pipeline, VkCommandBuffer cmd, uint32_t image_index);
+void pipeline_3d_record_cmd(struct ScPipeline *pipeline, VkCommandBuffer cmd, uint32_t image_index);
 
-void pipeline_d3_deferred_update(struct ScPipeline *pipeline);
+void pipeline_3d_update(struct ScPipeline *pipeline);
 
 /*
 *   SC CORE

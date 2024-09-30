@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -36,6 +37,9 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 }
 
 #define fatal(...) {printf(__VA_ARGS__); exit(1);}
+#define min(x, y) (((x) < (y)) ? (x) : (y))
+#define max(x, y) (((x) > (y)) ? (x) : (y))
+#define clamp(x, low, up) min((up), max((x), (low)))
 
 int main()
 {
@@ -58,7 +62,9 @@ int main()
     core_info.os_specific.visual_id = XVisualIDFromVisual(DefaultVisual(core_info.os_specific.dpy, DefaultScreen(core_info.os_specific.dpy)));
 #endif // __linux__
     struct ScCore *core = sc_init_core(&core_info);
-    struct ScPipeline *pipeline = sc_create_pipeline(core, SC_PIPELINE_TYPE_3D_DEFERRED);
+    struct ScPipeline3dInfo pipeline_info = {0};
+    pipeline_info.max_point_light = 10;
+    struct ScPipeline *pipeline = sc_create_pipeline_3d(core, &pipeline_info);
     sc_attach_pipeline(core, pipeline);
 
     struct mat4f mat_id = mat4f_identity();
@@ -66,12 +72,12 @@ int main()
     mat4f_set_perspective(&mat_cam_perspective, (float)width / (float)height, 90.0f, 0.01f, 100.0f);
     mat4f_set_identity(&mat_cam_view);
     mat4f_set_mul(&mat_cam_perspective, &mat_cam_view, &mat_cam_total);
-    sc_pipeline_set_camera(pipeline, (const struct ScCameraData*)&mat_cam_total);
+    sc_pipeline_3d_set_camera_data(pipeline, (const struct ScCameraData*)&mat_cam_total);
     struct ScAmbientLightData ambient_light = {0};
     ambient_light.color.r = 0.1f;
     ambient_light.color.g = 0.1f;
     ambient_light.color.b = 0.1f;
-    sc_pipeline_set_ambient_light(pipeline, &ambient_light);
+    sc_pipeline_3d_set_ambient_light(pipeline, &ambient_light);
     struct ScSunLightData sun_light_data = {0};
     sun_light_data.color.r = 0.0f;
     sun_light_data.color.g = 0.0f;
@@ -79,16 +85,25 @@ int main()
     sun_light_data.direction.x = -10.0f;
     sun_light_data.direction.y = -10.0f;
     sun_light_data.direction.z = -10.0f;
-    sc_pipeline_set_sun_light(pipeline, &sun_light_data);
-    struct ScPointLightData light_data = {0};
-    light_data.color.r = 1.0f;
-    light_data.color.g = 1.0f;
-    light_data.color.b = 1.0f;
-    light_data.position.x = 1.0f;
-    light_data.position.y = -5.0f;
-    light_data.position.z = 10.0f;
-    light_data.power.data[0] = 10.0f;
-    struct ScPointLight *light = sc_pipeline_create_point_light(pipeline, &light_data);
+    sc_pipeline_3d_set_sun_light(pipeline, &sun_light_data);
+    struct ScPointLightData light_data_a = {0};
+    light_data_a.color.r = 1.0f;
+    light_data_a.color.g = 1.0f;
+    light_data_a.color.b = 1.0f;
+    light_data_a.position.x = 1.0f;
+    light_data_a.position.y = -5.0f;
+    light_data_a.position.z = 10.0f;
+    light_data_a.power.data[0] = 10.0f;
+    struct ScPointLight *light_a = sc_pipeline_3d_create_point_light(pipeline, &light_data_a);
+    struct ScPointLightData light_data_b = {0};
+    light_data_b.color.r = 0.0f;
+    light_data_b.color.g = 0.0f;
+    light_data_b.color.b = 1.0f;
+    light_data_b.position.x = 1.0f;
+    light_data_b.position.y = -5.0f;
+    light_data_b.position.z = -10.0f;
+    light_data_b.power.data[0] = 10.0f;
+    struct ScPointLight *light_b = sc_pipeline_3d_create_point_light(pipeline, &light_data_b);
 
     struct ScAsset *asset = sc_load_asset("./res/anim-test.glb");
     for (size_t i = 0; i < sc_asset_get_mesh_count(asset); ++i)
@@ -123,8 +138,33 @@ int main()
     glfwGetCursorPos(window, &cursor_xpos, &cursor_ypos);
     float roty = 0.0f, rotx = 0.0f;
     glfwShowWindow(window);
+
+    float translate = 0.0f;
+
     while(!glfwWindowShouldClose(window))
     {
+        translate += 0.1f;
+        light_data_a.color.g = light_data_a.color.b = translate / 10.0f;
+        sc_point_light_set_data(light_a, &light_data_a);
+        if (translate > 5.0f && item_a != NULL)
+        {
+            sc_mesh_pack_destroy_item(pack, item_a);
+            item_a = NULL;
+            printf("item destroyed\n");
+        }
+        if (translate > 10.0f && item_a == NULL)
+        {
+            item_a = sc_mesh_pack_create_item(pack, 4, (const struct ScItemData*)&mat_a);
+            printf("item created\n");
+            translate = 0.0f;
+        }
+        if (item_a != NULL)
+        {
+            mat4f_set_identity(&mat_a);
+            mat4f_translate(&mat_a, translate, 0.0f, 0.0f);
+            sc_item_set_data(item_a, (const struct ScItemData*)&mat_a);
+        }
+
         double new_cursor_xpos, new_cursor_ypos;
         glfwGetCursorPos(window, &new_cursor_xpos, &new_cursor_ypos);
         if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_1) == GLFW_PRESS)
@@ -132,7 +172,8 @@ int main()
             double cursor_xoffset = new_cursor_xpos - cursor_xpos, cursor_yoffset = new_cursor_ypos - cursor_ypos;
             roty += (float)cursor_xoffset / 300.0f;
             rotx -= (float)cursor_yoffset / 500.0f;
-            //roty = fmodf(rotx, 2 * M_PI);
+            roty = fmodf(roty, 2 * M_PI);
+            rotx = clamp(rotx, -M_PI_2, M_PI_2);
         }
         cursor_xpos = new_cursor_xpos;
         cursor_ypos = new_cursor_ypos;
@@ -143,19 +184,20 @@ int main()
 
         mat4f_rot_y(mat4f_rot_x(mat4f_set_translation(&mat_cam_view, 0.0f, 0.0f, scroll), rotx), roty);
         mat4f_set_mul(&mat_cam_perspective, &mat_cam_view, &mat_cam_total);
-        sc_pipeline_set_camera(pipeline, (const struct ScCameraData*)&mat_cam_total);
+        sc_pipeline_3d_set_camera_data(pipeline, (const struct ScCameraData*)&mat_cam_total);
 
         sc_update_core(core);
         glfwPollEvents();
     }
 
-    sc_pipeline_destroy_point_light(pipeline, light);
+    sc_pipeline_3d_destroy_point_light(pipeline, light_b);
+    sc_pipeline_3d_destroy_point_light(pipeline, light_a);
     sc_mesh_pack_destroy_item(pack, item_b);
-    sc_mesh_pack_destroy_item(pack, item_a);
+    if (item_a != NULL) sc_mesh_pack_destroy_item(pack, item_a);
     sc_destroy_mesh_pack(pack);
     sc_release_asset(asset);
     sc_detach_pipeline(core, pipeline);
-    sc_destroy_pipeline(pipeline);
+    sc_destroy_pipeline_3d(pipeline);
     sc_end_core(core);
     glfwDestroyWindow(window);
     glfwTerminate();

@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(SRC_DIR  ${PROJECT_SOURCE_DIR})
 set(SRC_FILES   ${SRC_DIR}/test/main.c
                 ${SRC_DIR}/test/cutils_math.c
-                ${SRC_DIR}/src/ctools.c
+                ${SRC_DIR}/src/cutils_base.c
                 ${SRC_DIR}/src/log.c
                 ${SRC_DIR}/src/volk.c
                 ${SRC_DIR}/src/vk_mem_alloc.cpp
@@ -17,7 +17,7 @@ set(SRC_FILES   ${SRC_DIR}/test/main.c
                 ${SRC_DIR}/src/automaton.c
                 ${SRC_DIR}/src/mesh_pack.c
                 ${SRC_DIR}/src/subbuffer.c
-                ${SRC_DIR}/src/d3_deferred_pipeline.c
+                ${SRC_DIR}/src/pipeline_3d.c
                 ${SRC_DIR}/src/asset.c)
 
 find_package(glfw3 REQUIRED)

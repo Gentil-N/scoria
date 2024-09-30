@@ -1,5 +1,4 @@
 #include "common.h"
-#include "ctools.h"
 #include "log.h"
 
 #include <assimp/cimport.h>
@@ -69,6 +68,7 @@ void create_buffer_resources(struct ScCore *core, struct ScMeshPack *pack, const
     pack->sb_allocator = create_subbuffer_allocator(&core->automaton, AUTOMATON_QUEUE_TYPE_GRAPHICS, AUTOMATON_QUEUE_TYPE_GRAPHICS, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, segment_count, segment_infos);
     pack->sb_mesh = allocate_subbuffer(&pack->sb_allocator, 0);
     pack->sb_mesh->data = mesh_data;
+    pack->sb_mesh->updated = true;
     pack->sb_mesh->free_on_copy = true;
 }
 
@@ -107,13 +107,15 @@ struct ScItem *sc_mesh_pack_create_item(struct ScMeshPack *mesh_pack, size_t mes
     ram_alloc_init(struct ScItem, item);
     item->subbuffer = allocate_subbuffer(&mesh_pack->sb_allocator, mesh_id + 1);
     item->subbuffer->data = item_data;
+    item->subbuffer->updated = true;
     list_ScItem_ptr_append(&mesh_pack->list_item_ptrs.data[mesh_id], &item);
     return item;
 }
 
 void sc_mesh_pack_destroy_item(struct ScMeshPack *mesh_pack, struct ScItem *item)
 {
-    list_ScItem_ptr_remove_on_finding(&mesh_pack->list_item_ptrs.data[item->subbuffer->_segment_id - 1], &item);
+    size_t i = list_ScItem_ptr_remove_on_finding(&mesh_pack->list_item_ptrs.data[item->subbuffer->_segment_id - 1], &item);
+    if (i == SIZE_MAX) log_warn("unable to remove item %p", item);
     free_subbuffer(&mesh_pack->sb_allocator, item->subbuffer);
     ram_free(item);
 }
@@ -176,4 +178,10 @@ bool mesh_pack_is_mesh_empty(struct ScMeshPack *mesh_pack, size_t mesh_id)
 VkBuffer mesh_pack_get_vkbuffer(struct ScMeshPack *mesh_pack)
 {
     return mesh_pack->sb_allocator.gpu_buffer.handle;
+}
+
+void sc_item_set_data(struct ScItem *item, const struct ScItemData *item_data)
+{
+    item->subbuffer->data = item_data;
+    item->subbuffer->updated = true;
 }
