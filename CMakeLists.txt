@@ -18,7 +18,8 @@ set(SRC_FILES   ${SRC_DIR}/test/main.c
                 ${SRC_DIR}/src/mesh_pack.c
                 ${SRC_DIR}/src/subbuffer.c
                 ${SRC_DIR}/src/pipeline_3d.c
-                ${SRC_DIR}/src/asset.c)
+                ${SRC_DIR}/src/asset.c
+                ${SRC_DIR}/src/math.c)
 
 find_package(glfw3 REQUIRED)
 include_directories(${GLFW_INCLUDE_DIRS})

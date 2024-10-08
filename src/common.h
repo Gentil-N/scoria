@@ -37,6 +37,9 @@ LIST(VkBuffer)
 
 LIST(VmaAllocation);
 
+typedef struct ScMat4f ScMat4f;
+LIST(ScMat4f);
+
 VkShaderModule create_shader_module(VkDevice device, const size_t code_size, const uint32_t *code_data);
 
 static inline VkPipelineShaderStageCreateInfo init_pipeline_shader_stage_info(VkShaderStageFlagBits flag, VkShaderModule module, const char *name)
@@ -317,6 +320,41 @@ size_t get_subbuffer_segment_subsize(struct SubBufferAllocator *allocator, size_
 *   SC ASSET
 */
 
+struct AnimKey
+{
+    float keytime;
+    struct ScVec3f position, scale;
+    struct ScQuatf rotation;
+};
+
+typedef struct AnimKey AnimKey;
+LIST(AnimKey)
+
+
+typedef struct ScNode *ScNode_ptr;
+LIST(ScNode_ptr);
+
+struct ScAnimation
+{
+    char *name;
+    float duration;
+    bool static_anim; // keys is null!
+    struct List_AnimKey keys;
+};
+
+typedef struct ScAnimation ScAnimation;
+LIST(ScAnimation);
+
+struct ScNode
+{
+    char *name;
+    struct ScNode *parent; // if null: is a root node
+    struct ScMat4f base_transform;
+    struct List_size_t mesh_ids;
+    struct List_ScNode_ptr children; // may have null size
+    struct List_ScAnimation animations;
+};
+
 struct ScAsset
 {
     struct List_char_ptr mesh_names;
@@ -324,6 +362,7 @@ struct ScAsset
     struct List_uint32_t indices;
     struct List_size_t vertex_byte_size_per_mesh;
     struct List_size_t index_count_per_mesh;
+    struct ScNode *root_node;
 };
 
 /*
@@ -336,11 +375,21 @@ struct ScItem
 };
 
 /*
-*   SC RESOURCE PACK
+* SC ITEM PACK
 */
 
 typedef struct ScItem *ScItem_ptr;
 LIST(ScItem_ptr);
+
+struct ScItemPack
+{
+    struct List_ScItem_ptr item_ptrs;
+};
+
+/*
+*   SC RESOURCE PACK
+*/
+
 typedef struct List_ScItem_ptr List_ScItem_ptr;
 LIST(List_ScItem_ptr);
 
@@ -442,14 +491,10 @@ struct ScPipeline
             } forward;
             struct SubBufferAllocator sb_allocator;
             struct SubBuffer *sb_camera, *sb_ambient_light, *sb_sun_light, *sb_light_count;
-            union ScGlslVec4f *lights_count;
-        } d3_deferred;
+            struct ScVec4f *lights_count;
+        } d3;
     };
 };
-
-struct ScPipeline create_pipeline_3d(struct Automaton *automaton, VkExtent2D extent, VkFormat present_format, VkFormat depth_format, const struct List_VkImageView *present_views);
-
-void destroy_pipeline_3d(struct ScPipeline *pipeline);
 
 void pipeline_3d_record_cmd(struct ScPipeline *pipeline, VkCommandBuffer cmd, uint32_t image_index);
 

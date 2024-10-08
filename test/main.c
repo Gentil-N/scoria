@@ -74,9 +74,9 @@ int main()
     mat4f_set_mul(&mat_cam_perspective, &mat_cam_view, &mat_cam_total);
     sc_pipeline_3d_set_camera_data(pipeline, (const struct ScCameraData*)&mat_cam_total);
     struct ScAmbientLightData ambient_light = {0};
-    ambient_light.color.r = 0.1f;
-    ambient_light.color.g = 0.1f;
-    ambient_light.color.b = 0.1f;
+    ambient_light.color.r = 0.01f;
+    ambient_light.color.g = 0.01f;
+    ambient_light.color.b = 0.01f;
     sc_pipeline_3d_set_ambient_light(pipeline, &ambient_light);
     struct ScSunLightData sun_light_data = {0};
     sun_light_data.color.r = 0.0f;
@@ -93,16 +93,16 @@ int main()
     light_data_a.position.x = 1.0f;
     light_data_a.position.y = -5.0f;
     light_data_a.position.z = 10.0f;
-    light_data_a.power.data[0] = 10.0f;
+    light_data_a.power.v[0] = 100.0f;
     struct ScPointLight *light_a = sc_pipeline_3d_create_point_light(pipeline, &light_data_a);
     struct ScPointLightData light_data_b = {0};
     light_data_b.color.r = 0.0f;
     light_data_b.color.g = 0.0f;
     light_data_b.color.b = 1.0f;
-    light_data_b.position.x = 1.0f;
+    light_data_b.position.x = -10.0f;
     light_data_b.position.y = -5.0f;
-    light_data_b.position.z = -10.0f;
-    light_data_b.power.data[0] = 10.0f;
+    light_data_b.position.z = 0.0f;
+    light_data_b.power.v[0] = 30.0f;
     struct ScPointLight *light_b = sc_pipeline_3d_create_point_light(pipeline, &light_data_b);
 
     struct ScAsset *asset = sc_load_asset("./res/anim-test.glb");
@@ -111,11 +111,12 @@ int main()
         printf("mesh name: %s\n", sc_asset_get_mesh_name(asset, i));
     }
 
-    /*float vertices[] = {-0.25f, -0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.25f, -0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.25f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, -0.25f, 0.25f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f,
-        0.0f, -0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, -0.5f, 0.5f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f};
-    uint32_t indices[] = {0, 1, 2, 2, 3, 0, 0, 1, 2};
-    size_t vertex_byte_size_per_mesh[] = {sizeof(float) * 3 * 3 * 4, sizeof(float) * 3 * 3 * 3};
-    size_t index_count_per_mesh[] = {6, 3};*/
+    const struct ScNode *root_node = sc_asset_get_root_node(asset);
+    for (size_t i = 0; i < sc_node_get_animation_count(root_node); ++i)
+    {
+        printf("%s\n", sc_node_get_animation_name(root_node, i));
+    }
+
     size_t max_instance_per_mesh[] = {10, 10, 10, 10, 10};
     /*struct ScMeshPackInfo pack_info = {0};
     pack_info.mesh_count = 2;
@@ -126,12 +127,25 @@ int main()
     pack_info.max_instance_per_mesh = max_instance_per_mesh;*/
     //struct ScMeshPack *pack = sc_create_mesh_pack(core,pipeline, &pack_info);
     struct ScMeshPack *pack = sc_create_mesh_pack_from_asset(core, pipeline, asset, max_instance_per_mesh);
-    struct mat4f mat_a = mat4f_identity();
+
+    /*struct mat4f mat_a = mat4f_identity();
     mat4f_translate(&mat_a, 5.0f, 0.0f, 0.0f);
     struct mat4f mat_b = mat4f_identity();
     mat4f_translate(&mat_b, -5.0f, 0.0f, 0.0f);
-    struct ScItem *item_a = sc_mesh_pack_create_item(pack, 4, (const struct ScItemData*)mat_a.m);
-    struct ScItem *item_b = sc_mesh_pack_create_item(pack, 3, (const struct ScItemData*)mat_b.m);
+    struct ScItem *item_a = sc_mesh_pack_create_item(pack, sc_asset_get_mesh_id(asset, "Sphere"), (const struct ScItemData*)mat_a.m);
+    struct ScItem *item_b = sc_mesh_pack_create_item(pack, sc_asset_get_mesh_id(asset, "Cube"), (const struct ScItemData*)mat_b.m);*/
+
+    struct ScItemPack *item_pack = sc_mesh_pack_create_item_pack_from_node(pack, root_node);
+    size_t transform_count = sc_item_pack_get_item_count(item_pack);
+    struct ScMat4f transforms[transform_count];
+    struct ScMat4f identity = sc_mat4f_identity();
+    /*for (size_t i = 0; i < transform_count; ++i)
+    {
+        transforms[i] = sc_mat4f_identity();
+        sc_mat4f_translate(&transforms[i], 0, 0, i * 4);
+    }*/
+    sc_node_bake_animation(root_node, 0, 400.0f, transforms, &identity);
+    sc_item_pack_set_data(item_pack, (const struct ScItemData*)transforms);
 
     glfwSetScrollCallback(window, scroll_callback);
     double cursor_xpos, cursor_ypos;
@@ -139,20 +153,28 @@ int main()
     float roty = 0.0f, rotx = 0.0f;
     glfwShowWindow(window);
 
-    float translate = 0.0f;
+    float anim_evo = 42.0f;
 
     while(!glfwWindowShouldClose(window))
     {
-        translate += 0.1f;
-        light_data_a.color.g = light_data_a.color.b = translate / 10.0f;
+        anim_evo += 5.0f;
+        if (anim_evo >= 800.0f)
+        {
+            anim_evo = 42.0f;
+        }
+        light_data_a.color.g = light_data_a.color.b = anim_evo / 800.0f;
         sc_point_light_set_data(light_a, &light_data_a);
-        if (translate > 5.0f && item_a != NULL)
+
+        sc_node_bake_animation(root_node, 0, anim_evo, transforms, &identity);
+        sc_item_pack_set_data(item_pack, (const struct ScItemData*)transforms);
+
+        /*if (translate > 30.0f && item_a != NULL)
         {
             sc_mesh_pack_destroy_item(pack, item_a);
             item_a = NULL;
             printf("item destroyed\n");
         }
-        if (translate > 10.0f && item_a == NULL)
+        if (translate > 35.0f && item_a == NULL)
         {
             item_a = sc_mesh_pack_create_item(pack, 4, (const struct ScItemData*)&mat_a);
             printf("item created\n");
@@ -163,7 +185,7 @@ int main()
             mat4f_set_identity(&mat_a);
             mat4f_translate(&mat_a, translate, 0.0f, 0.0f);
             sc_item_set_data(item_a, (const struct ScItemData*)&mat_a);
-        }
+            }*/
 
         double new_cursor_xpos, new_cursor_ypos;
         glfwGetCursorPos(window, &new_cursor_xpos, &new_cursor_ypos);
@@ -192,8 +214,9 @@ int main()
 
     sc_pipeline_3d_destroy_point_light(pipeline, light_b);
     sc_pipeline_3d_destroy_point_light(pipeline, light_a);
-    sc_mesh_pack_destroy_item(pack, item_b);
-    if (item_a != NULL) sc_mesh_pack_destroy_item(pack, item_a);
+    sc_mesh_pack_destroy_item_pack(pack, item_pack);
+    /*sc_mesh_pack_destroy_item(pack, item_b);
+    if (item_a != NULL) sc_mesh_pack_destroy_item(pack, item_a);*/
     sc_destroy_mesh_pack(pack);
     sc_release_asset(asset);
     sc_detach_pipeline(core, pipeline);

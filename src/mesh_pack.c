@@ -49,7 +49,7 @@ void init_mesh_infos(struct ScMeshPack *pack, const struct ScMeshPackInfo *info)
     }
 }
 
-void create_buffer_resources(struct ScCore *core, struct ScMeshPack *pack, const struct ScMeshPackInfo *mesh_pack_info)
+void mesh_pack_create_buffer_resources(struct ScCore *core, struct ScMeshPack *pack, const struct ScMeshPackInfo *mesh_pack_info)
 {
     void *mesh_data = ram_malloc(pack->total_mesh_byte_size);
     memcpy(mesh_data, mesh_pack_info->vertex_data, pack->index_byte_offsets.data[0]);
@@ -78,7 +78,7 @@ struct ScMeshPack *sc_create_mesh_pack(struct ScCore *core, struct ScPipeline *p
     ram_alloc_init(struct ScMeshPack, pack);
     init_mesh_infos(pack, mesh_pack_info);
     pack->pipeline = pipeline;
-    create_buffer_resources(core, pack, mesh_pack_info);
+    mesh_pack_create_buffer_resources(core, pack, mesh_pack_info);
     list_ScMeshPack_ptr_append(&pipeline->packs_ptrs, &pack);
     return pack;
 }
